@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from urllib.parse import quote
 
-from . import files, hub, hub_collaboration, hub_execution, hub_extensions, hub_teams, search, sharing
+from . import files, hub, hub_agent_sessions, hub_collaboration, hub_execution, hub_extensions, hub_teams, search, sharing
 
 JSON = 'application/json; charset=utf-8'
 
@@ -189,6 +189,10 @@ def dispatch(method, path, body=None, query=None):
             data = hub.revoke_source(route[1])
         elif method == 'POST' and route == ['tasks', 'claim']:
             data = hub.claim_task(body.get('worker_id'), body.get('agent_ids'), body.get('room_id'), body.get('session_token'), body.get('capabilities'), body.get('host_identity'))
+        elif method == 'GET' and len(route) == 3 and route[0] == 'rooms' and route[2] == 'agent-sessions':
+            data = hub_agent_sessions.list_sessions(route[1])
+        elif method == 'GET' and len(route) == 2 and route[0] == 'agent-sessions':
+            data = hub_agent_sessions.get_session(route[1], _integer(query, 'after', 0), _integer(query, 'limit', 50))
         elif method == 'GET' and len(route) == 3 and route[0] == 'tasks' and route[2] == 'execution':
             data = hub_execution.get_execution(route[1])
         elif method == 'GET' and len(route) == 3 and route[0] == 'executions' and route[2] == 'events':

@@ -12,6 +12,46 @@
 .execution-overview{display:grid;grid-template-columns:1.1fr 1fr 1.4fr;gap:18px;padding:15px 25px;background:var(--ui-canvas);border-top:1px solid var(--ui-line);border-bottom:1px solid var(--ui-line);flex:none}
 .execution-overview dt{font-size:var(--ui-caption);color:var(--ui-muted);margin-bottom:6px}
 .execution-overview dd{margin:0;font-size:var(--ui-control);color:var(--ui-ink);font-weight:500;line-height:1.6;overflow-wrap:anywhere}
+.execution-agent-session{flex:none;border-bottom:1px solid var(--ui-line);color:var(--ui-ink);background:var(--ui-surface,#fff)}
+.execution-agent-session>summary{display:flex;align-items:center;justify-content:space-between;gap:18px;cursor:pointer;padding:12px 25px;list-style:none;min-height:64px}
+.execution-agent-session>summary::-webkit-details-marker{display:none}
+.execution-agent-session>summary:after{content:"⌄";color:var(--ui-muted);flex:none}
+.execution-agent-session[open]>summary:after{content:"⌃"}
+.execution-agent-session>summary>span:first-child{flex:1;min-width:0}
+.execution-agent-session>summary small{display:block;font-size:var(--ui-caption);color:var(--ui-muted);line-height:1.6}
+.execution-agent-session>summary strong{display:block;font-size:var(--ui-control);font-weight:550;line-height:1.7;overflow-wrap:anywhere}
+.execution-agent-session-mode{font-size:var(--ui-control);color:var(--ui-ink);line-height:1.6}
+.execution-agent-session-body{padding:0 25px 16px;max-height:255px;overflow:auto;scrollbar-width:thin;font-size:var(--ui-control);line-height:1.7;overscroll-behavior:contain}
+.execution-agent-session-body>p{margin:0 0 10px;color:var(--ui-muted)}
+.execution-session-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--ui-muted);font-size:var(--ui-caption)}
+.execution-session-toolbar button,.execution-agent-session-body>.small-button{min-height:38px;flex:none}
+.execution-session-turns{list-style:none;margin:6px 0 0;padding:0}
+.execution-session-turns>li{display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-top:1px solid var(--ui-line)}
+.execution-session-turns>li>div{min-width:0;flex:1}
+.execution-session-turn-number{min-width:24px;text-align:center;color:var(--ui-muted);font-size:var(--ui-caption);line-height:28px}
+.execution-session-turns>li[aria-current=true] .execution-session-turn-number{color:var(--ui-accent);font-weight:600}
+.execution-session-task{font-size:var(--ui-control);line-height:1.7;text-align:left;color:var(--ui-ink);padding:2px 0;overflow-wrap:anywhere}
+.execution-session-task:hover{text-decoration:underline;color:var(--ui-accent)}
+.execution-session-turns p,.execution-session-turns time{font-size:var(--ui-caption);color:var(--ui-muted);margin:2px 0 0}
+.execution-session-turns time{white-space:nowrap;padding-top:2px}
+.execution-session-error,.execution-session-blocked{padding:10px 12px;border-radius:7px;background:#fff7ea;color:#805921;font-size:var(--ui-control);line-height:1.7}
+.execution-session-blocked p{margin:0}
+#execution-agent-delegations h3{font-size:var(--ui-control);font-weight:550;margin:12px 0 5px}
+#execution-agent-delegation-list{list-style:none;padding:0;margin:0}
+#execution-agent-delegation-list>li{padding:8px 0;border-top:1px solid var(--ui-line)}
+#execution-agent-delegation-list>li>span{color:var(--ui-muted);margin:0 9px;font-size:var(--ui-caption)}
+#execution-agent-delegation-list details{font-size:var(--ui-caption);color:var(--ui-muted);overflow-wrap:anywhere}
+#execution-agent-delegation-list details summary{cursor:pointer;padding:6px 0}
+#execution-agent-delegation-list details p{margin:0}
+@media(max-width:560px){
+.execution-agent-session>summary{padding:11px 17px;gap:10px;flex-wrap:wrap}
+.execution-agent-session>summary>span:first-child{flex-basis:100%}
+.execution-agent-session-mode{flex:1;font-size:var(--ui-caption)}
+.execution-agent-session-body{padding:0 17px 14px;max-height:320px}
+.execution-session-turns>li{flex-wrap:wrap;column-gap:7px}
+.execution-session-turns>li time{width:100%;padding-left:31px;margin-top:-7px}
+.execution-session-task,.execution-session-toolbar button,.execution-agent-session-body>.small-button{min-height:44px}
+}
 .execution-status{display:inline-flex;align-items:center;gap:6px;font-size:var(--ui-caption);color:var(--ui-muted)}
 .execution-status:before{content:"";width:6px;height:6px;border-radius:50%;background:#a6b2a6;flex:none}
 .execution-status[data-state=running]{color:var(--ui-muted)}

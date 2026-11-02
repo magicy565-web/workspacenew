@@ -1,5 +1,7 @@
 # Agent Workspace · Buyer Magazine Studio
 
+> 当前分支 `feature/agent-sessions-v0.10` 是未发布的开发检查点。需要今晚已验收的版本，请使用 `main`。跨任务会话续接的服务端、宿主适配器和界面已合入此分支，真实模型连续两轮及完整界面联调尚未验收。接续事项见 [2026-11-03 开发交接](docs/development-handoff-2026-11-03.md)。
+
 一个可自托管、由调用方 Agent 提供模型能力的协作平台工程。工作区负责会话、分工、执行状态、资料和成果；买手杂志保留为独立应用，入口是 `/magazines`。
 
 当前按 QM-TT 的 [产品范围与验收](docs/product-scope.md) 推进：先完成 M1 Workspace + M2 Agent Team，验证真实买手开发流程及同会话的后续工作；Marketplace 留到之后。

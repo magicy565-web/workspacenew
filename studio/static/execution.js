@@ -11,6 +11,8 @@
   const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.list}</svg>`;
   const decisions = { start: "首次执行", restart: "重新执行", continue: "继续已有宿主会话", submit_result: "提交已保存的结果", review_required: "等待核对", completed: "已完成", cancelled: "已取消" };
   const taskStates = { queued: "等待接手", running: "执行中", completed: "已完成", failed: "执行已中断", cancelled: "已取消" };
+  const sessionReasons = { first_turn: "这是这个 Agent 在对话中的第一次工作。", matching_completed_turn: "已匹配上次完成工作的上下文。", task_recovery_priority: "沿用这项任务的恢复决定。", no_completed_checkpoint: "上次完成的工作没有可续接记录。", worker_changed: "执行端已变更。", host_changed: "宿主环境已变更。", continuation_unsupported: "当前执行端不支持续接。", agent_instructions_changed: "Agent 指令已变更。", skills_changed: "绑定的技能已变更。", team_permissions_changed: "团队成员或权限已变更。", source_visibility_changed: "可使用的资料已变更。", shared_context_changed: "对话背景已变更。", previous_turn_incomplete: "上一次工作未正常完成。", context_snapshot_unavailable: "此前的工作上下文不可用。" };
+  let sessionHistory = null, dialogGeneration = 0;
   const eventTitles = { "attempt.started": "执行端已接手", progress: "执行进度", host_session: "宿主会话已记录", checkpoint: "会话检查点已记录", tool_call: "发起工具调用", tool_result: "工具调用结果", "result.ready": "结果已保存，等待提交", "task.completed": "任务已完成", "task.failed": "执行已中断", "task.cancelled": "任务已取消", "recovery.required": "需要核对外部调用", "recovery.reviewed": "核对决定已记录" };
   const callStates = { pending: "尚无结果", unknown: "结果未确认", succeeded: "已完成", not_executed: "未执行" };
   const reviewDecisions = { confirmed_succeeded: "已确认调用完成", confirmed_not_executed: "已确认没有执行", terminate: "终止本次协作" };
@@ -26,12 +28,14 @@
   function draftFor(id = state.taskId) { if (!state.drafts.has(id)) state.drafts.set(id, { note: "", decision: "", callId: "", needsCallChoice: false, attempt: null }); return state.drafts.get(id); }
   function currentAttempt() { return [...(state.execution?.attempts || [])].sort((a, b) => b.attempt - a.attempt)[0] || null; }
   function unsafeCalls() { return (state.execution?.recovery?.calls || []).filter((call) => !call.retry_safe && ["pending", "unknown"].includes(call.state)); }
+  function needsOutcomeReview() { return state.execution?.recovery?.decision === "review_required" || (state.execution?.task_status === "cancelled" && state.execution.can_reconcile); }
   function modeLabel(value) { return decisions[value] || value || "尚未领取"; }
-  function taskStatus() { return state.execution?.recovery?.decision === "review_required" ? "等待核对" : taskStates[state.execution?.task_status] || state.execution?.task_status || "正在读取"; }
+  function taskStatus() { return needsOutcomeReview() ? (state.execution?.task_status === "cancelled" ? "已取消 · 结果待核对" : "等待核对") : taskStates[state.execution?.task_status] || state.execution?.task_status || "正在读取"; }
 
   document.body.insertAdjacentHTML("beforeend", `
     <dialog class="app-dialog execution-dialog" id="execution-dialog" aria-labelledby="execution-title"><header class="dialog-header"><div class="execution-heading"><h2 id="execution-title">执行记录</h2><p id="execution-task-title"></p></div><div class="execution-dialog-actions"><button class="icon-button" type="button" id="refresh-execution" aria-label="刷新执行记录" title="刷新执行记录">${icon("refresh")}</button><button class="icon-button" type="button" data-close-dialog aria-label="关闭执行记录">${icon("close")}</button></div></header>
       <dl class="execution-overview"><div><dt>任务状态</dt><dd><span class="execution-status" id="execution-task-status">正在读取</span></dd></div><div><dt>当前执行批次</dt><dd id="execution-current-attempt">—</dd></div><div><dt>执行端</dt><dd id="execution-current-worker">—</dd></div></dl>
+      <details class="execution-agent-session" id="execution-agent-session" hidden><summary aria-label="查看 Agent 会话历程"><span><small>最近一次工作上下文</small><strong id="execution-agent-session-heading"></strong></span><span class="execution-agent-session-mode" id="execution-agent-session-mode"></span></summary><div class="execution-agent-session-body"><p id="execution-agent-session-reason"></p><div class="execution-session-toolbar"><span id="execution-agent-session-status"></span><button class="small-button" id="refresh-agent-session" type="button" aria-label="刷新会话历程">刷新历程</button></div><p class="execution-session-error" id="execution-agent-session-error" role="alert" hidden></p><div id="execution-agent-session-blocked" class="execution-session-blocked" hidden></div><ol class="execution-session-turns" id="execution-agent-session-turns"></ol><section id="execution-agent-delegations" hidden><h3>委派关系</h3><ul id="execution-agent-delegation-list"></ul></section><button class="small-button" id="execution-agent-session-more" type="button" hidden>读取更多工作记录</button></div></details>
       <p class="execution-load-error" id="execution-load-error" role="alert" hidden></p>
       <div class="execution-layout"><aside class="execution-attempts" aria-label="执行批次"><h3 class="execution-attempts-heading">执行批次</h3><div class="execution-attempt-list" id="execution-attempt-list" role="tablist" aria-label="执行批次列表"></div></aside><section class="execution-main" aria-label="执行时间线"><div class="execution-attempt-summary"><div><strong id="execution-selected-heading">正在读取记录</strong><p id="execution-selected-subtitle"></p></div><span class="execution-live-note" id="execution-record-count"></span></div><div class="execution-review-banner" id="execution-review-banner" hidden><strong id="execution-review-heading"></strong><p>这些调用可能已经产生外部变更。请先核对实际结果，避免重复操作。</p><button class="execution-mutation" id="show-execution-review" type="button">核对调用</button></div><div class="execution-event-scroll" id="execution-event-scroll"><ol class="execution-events" id="execution-events"></ol><p class="execution-empty" id="execution-events-empty">正在读取执行记录…</p><button class="small-button" id="execution-load-more" hidden>读取更多事件</button></div></section></div>
       <section class="execution-recovery" id="execution-recovery"><div class="execution-recovery-summary"><div><h3 id="execution-recovery-title"></h3><p id="execution-recovery-description"></p><details class="execution-session-info" id="execution-session-info" hidden><summary>查看宿主会话记录</summary><pre id="execution-session-content"></pre></details></div></div>
@@ -51,6 +55,8 @@
     $("refresh-execution").disabled = state.loading;
   }
   async function openExecution(taskId, initial = null) {
+    dialogGeneration++;
+    sessionHistory = null; $("execution-agent-session").open = false; $("execution-agent-session").hidden = true; $("execution-agent-session-turns").replaceChildren(); $("execution-agent-delegation-list").replaceChildren();
     persistDraft(); state.epoch++; state.taskId = taskId; state.task = findTask(taskId); state.execution = initial; state.events = new Map(); state.cursor = 0; state.hasMore = false; state.selectedAttempt = null; state.selectedLatest = true; state.loading = false; state.loadedAt = 0; state.attemptsSignature = ""; state.summarySignature = ""; state.recoverySignature = ""; state.reviewOpen = false; state.busy = state.pendingTasks.has(taskId); state.acknowledgementAttempt = null;
     $("execution-dialog").dataset.executionTaskId = taskId; $("execution-task-title").textContent = state.task?.title || "任务执行记录";
     $("execution-attempt-list").replaceChildren(); $("execution-events").replaceChildren(); $("execution-events-empty").hidden = false; $("execution-events-empty").textContent = "正在读取执行记录…"; $("execution-selected-heading").textContent = "正在读取记录"; $("execution-selected-subtitle").textContent = ""; $("execution-record-count").textContent = ""; $("execution-load-more").hidden = true; $("execution-review-form").hidden = true; $("execution-review-error").hidden = true; $("execution-acknowledgement").hidden = true; setError(""); restoreDraft();
@@ -83,7 +89,7 @@
     if (state.acknowledgementAttempt !== null && latest?.attempt > state.acknowledgementAttempt) { $("execution-acknowledgement").hidden = true; state.acknowledgementAttempt = null; }
     if (state.selectedLatest || !attempts.some((item) => item.attempt === state.selectedAttempt)) state.selectedAttempt = latest?.attempt ?? null;
     $("execution-task-title").textContent = state.task?.title || "任务执行记录";
-    $("execution-task-status").textContent = taskStatus(); $("execution-task-status").dataset.state = execution.recovery.decision === "review_required" ? "needs_review" : execution.task_status;
+    $("execution-task-status").textContent = taskStatus(); $("execution-task-status").dataset.state = needsOutcomeReview() ? "needs_review" : execution.task_status;
     $("execution-current-attempt").textContent = latest ? `第 ${latest.attempt} 次 · ${modeLabel(latest.decision)}` : "尚未领取";
     $("execution-current-worker").textContent = latest?.worker_id || "等待执行端接手";
     const signature = JSON.stringify({ attempts, selected: state.selectedAttempt });
@@ -95,7 +101,52 @@
     const selected = attempts.find((attempt) => attempt.attempt === state.selectedAttempt);
     $("execution-selected-heading").textContent = selected ? `第 ${selected.attempt} 次执行 · ${modeLabel(selected.decision)}` : "等待执行端接手";
     $("execution-selected-subtitle").textContent = selected ? `${selected.worker_id} · ${stamp(selected.started_at, true)}` : "任务尚未被领取。";
-    renderRecovery(); renderEvents();
+    renderAgentSession(); renderRecovery(); renderEvents();
+  }
+  function sessionMode(continuation) { return continuation?.decision === "continue" ? "接着上次工作" : continuation?.decision === "task_recovery" ? "恢复这项工作" : continuation?.decision === "fresh" ? "新的工作上下文" : "上下文方式未提供"; }
+  function renderAgentSession() {
+    const info = state.execution?.agent_session, panel = $("execution-agent-session"); panel.hidden = !info;
+    if (!info) { sessionHistory = null; panel.open = false; return; }
+    panel.dataset.agentSessionId = info.id;
+    if (sessionHistory?.id !== info.id) sessionHistory = { id: info.id, session: null, turns: new Map(), delegations: new Map(), cursor: 0, hasMore: false, loading: false, loaded: false };
+    const agent = ui()?.getAgents()?.find((item) => item.id === info.agent_id);
+    $("execution-agent-session-heading").textContent = `${agent?.name || sessionHistory.session?.agent_name || "Agent"} · 第 ${info.turn_index} 次工作`;
+    $("execution-agent-session-mode").textContent = sessionMode(info.continuation);
+    $("execution-agent-session-reason").textContent = sessionReasons[info.continuation?.reason] || (info.continuation?.reason ? `上下文原因：${info.continuation.reason}` : "服务未提供上下文原因。");
+    if (panel.open && !sessionHistory.loaded && !sessionHistory.loading) loadAgentSession();
+  }
+  async function loadAgentSession(more = false) {
+    const history = sessionHistory, epoch = state.epoch, taskId = state.taskId;
+    if (!history || history.loading || !$("execution-dialog").open || !$("execution-agent-session").open) return;
+    const owns = () => sessionHistory === history && state.epoch === epoch && state.taskId === taskId && $("execution-dialog").open && $("execution-agent-session").open;
+    history.loading = true; $("refresh-agent-session").disabled = true; $("execution-agent-session-more").disabled = true; $("execution-agent-session-error").hidden = true;
+    if (!history.loaded) $("execution-agent-session-status").textContent = "正在读取工作历程…";
+    try {
+      const result = await api(`/agent-sessions/${encodeURIComponent(history.id)}?after=${more ? history.cursor : 0}&limit=50`);
+      if (!owns()) return;
+      if (result.session?.id !== history.id) throw new Error("会话记录不匹配，请重新读取。");
+      if (!more) { history.turns.clear(); history.delegations.clear(); }
+      for (const turn of result.turns || []) history.turns.set(turn.task_id, turn);
+      for (const edge of result.delegations || []) history.delegations.set(edge.id, edge);
+      history.session = result.session; history.cursor = result.cursor; history.hasMore = !!result.has_more; history.loaded = true;
+      renderSessionHistory();
+    } catch (error) { if (owns()) { $("execution-agent-session-error").hidden = false; $("execution-agent-session-error").textContent = error.status === 404 ? "这份会话历程当前不可用。你仍可查看下方任务记录。" : error.message; if (!history.loaded) $("execution-agent-session-status").textContent = "未能读取历程"; } }
+    finally { history.loading = false; if (sessionHistory === history && state.epoch === epoch) { $("refresh-agent-session").disabled = false; $("execution-agent-session-more").disabled = false; } }
+  }
+  function sessionTaskButton(taskId, fallback = "") {
+    const task = sessionHistory?.turns.get(taskId) || findTask(taskId), title = task?.title || fallback || `任务 ${taskId}`;
+    return `<button type="button" class="execution-session-task" data-session-task="${esc(taskId)}" aria-label="查看工作记录：${esc(title)}">${esc(title)}</button>`;
+  }
+  function renderSessionHistory() {
+    const history = sessionHistory, summary = history?.session; if (!summary) return;
+    const status = { idle: "当前空闲", running: "正在工作", blocked: "等待处理" }[summary.status] || summary.status;
+    $("execution-agent-session-status").textContent = `${summary.agent_name} · ${summary.turn_count} 次工作 · ${status}`;
+    const block = $("execution-agent-session-blocked"); block.hidden = summary.status !== "blocked";
+    block.innerHTML = summary.status === "blocked" ? `<p>${esc(summary.blocked_message || "此前的工作需要处理。")}</p>${summary.blocked_by_task_id ? sessionTaskButton(summary.blocked_by_task_id, "查看待处理工作") : ""}` : "";
+    $("execution-agent-session-turns").innerHTML = [...history.turns.values()].sort((a, b) => a.turn_index - b.turn_index).map((turn) => `<li data-agent-session-task-id="${esc(turn.task_id)}" data-agent-session-turn-index="${turn.turn_index}"${turn.task_id === state.taskId ? ' aria-current="true"' : ""}><span class="execution-session-turn-number">${turn.turn_index}</span><div>${sessionTaskButton(turn.task_id)}<p>${esc(taskStates[turn.status] || turn.status)}${turn.latest_attempt ? ` · ${esc(sessionMode(turn.latest_attempt.continuation))}` : " · 尚未领取"}</p></div><time title="${esc(turn.created_at)}">${esc(stamp(turn.created_at))}</time></li>`).join("") || '<li class="execution-empty">还没有工作记录。</li>';
+    const edges = [...history.delegations.values()]; $("execution-agent-delegations").hidden = !edges.length;
+    $("execution-agent-delegation-list").innerHTML = edges.map((edge) => `<li data-delegation-id="${esc(edge.id)}" data-parent-task-id="${esc(edge.parent_task_id)}" data-child-task-id="${esc(edge.child_task_id)}">${sessionTaskButton(edge.parent_task_id)}<span>委派给</span>${sessionTaskButton(edge.child_task_id)}<details><summary>查看关联记录</summary><p>来源会话：${esc(edge.parent_session_id)}<br>目标会话：${esc(edge.child_session_id)}<br>运行：${esc(edge.run_id)}</p></details></li>`).join("");
+    $("execution-agent-session-more").hidden = !history.hasMore;
   }
   function eventTitle(event) {
     if (event.kind === "tool_call") return event.payload.tool || eventTitles.tool_call;
@@ -133,13 +184,14 @@
     if (nearBottom) requestAnimationFrame(() => { scroll.scrollTop = scroll.scrollHeight; });
   }
   function renderRecovery() {
-    const execution = state.execution, recovery = execution.recovery, reviewRequired = recovery.decision === "review_required", calls = unsafeCalls();
+    const execution = state.execution, recovery = execution.recovery, reviewRequired = needsOutcomeReview(), calls = unsafeCalls();
     $("execution-recovery").hidden = false; $("execution-review-banner").hidden = !reviewRequired;
     $("execution-review-heading").textContent = calls.length ? `${calls.length} 个外部调用的结果尚未确认` : "外部调用需要核对";
     $("show-execution-review").hidden = !execution.can_reconcile || !writable() || state.reviewOpen;
     const active = !!execution.active, canReview = execution.can_reconcile && writable();
     let title, description;
-    if (reviewRequired) { title = "先核对，再继续"; description = canReview ? "记录核对结果后，再决定是否重新排队。" : active ? "执行端仍持有这个任务，当前不能修改核对结果。" : "当前需要有编辑权限的成员核对外部调用。"; }
+    if (reviewRequired && execution.task_status === "cancelled") { title = "已停止，外部结果仍待核对"; description = canReview ? "核对或记录终止决定后，后续工作才能继续。这不会恢复已取消的任务。" : "需要有编辑权限的成员处理未确认的外部结果。这项任务仍保持取消。"; }
+    else if (reviewRequired) { title = "先核对，再继续"; description = canReview ? "记录核对结果后，再决定是否重新排队。" : active ? "执行端仍持有这个任务，当前不能修改核对结果。" : "当前需要有编辑权限的成员核对外部调用。"; }
     else if (execution.task_status === "completed") { title = "这项任务已完成"; description = "执行记录已保留，可按批次查看。"; }
     else if (execution.task_status === "cancelled") { title = "这次协作已停止"; description = "未完成的任务已取消，已记录的外部操作不会自动撤销。"; }
     else if (active) { title = "执行端正在处理任务"; description = "这里显示执行端已回传的活动与结果。"; }
@@ -187,20 +239,21 @@
     if (!decision) { errorNode.hidden = false; errorNode.textContent = "请选择核对结果。"; document.querySelector('input[name="execution-decision"]').focus(); return; }
     if (!note) { $("execution-review-note").focus(); return; }
     if (decision !== "terminate" && !draft.callId) { errorNode.hidden = false; errorNode.textContent = "请选择需要核对的调用。"; return; }
-    const taskId = state.taskId, execution = state.execution, payload = { expected_seq: execution.last_seq, decision, note, ...(decision !== "terminate" ? { call_id: draft.callId } : {}) }, signature = JSON.stringify(payload);
+    const taskId = state.taskId, generation = dialogGeneration, execution = state.execution, payload = { expected_seq: execution.last_seq, decision, note, ...(decision !== "terminate" ? { call_id: draft.callId } : {}) }, signature = JSON.stringify(payload);
+    const ownsReview = () => state.taskId === taskId && dialogGeneration === generation && $("execution-dialog").open;
     if (!draft.attempt || draft.attempt.signature !== signature) draft.attempt = { signature, key: crypto.randomUUID() };
     state.pendingTasks.add(taskId); updateBusy();
     try {
       const result = await api(`/executions/${encodeURIComponent(execution.id)}/reconcile`, { method: "POST", body: { ...payload, request_key: draft.attempt.key } });
-      if (state.taskId !== taskId) return; state.execution = result; draft.attempt = null;
+      if (!ownsReview()) return; state.execution = result; draft.attempt = null;
       if (draft.note.trim() === note) { draft.note = ""; $("execution-review-note").value = ""; }
       draft.decision = ""; document.querySelectorAll('input[name="execution-decision"]').forEach((input) => { input.checked = false; });
       state.acknowledgementAttempt = currentAttempt()?.attempt ?? 0; $("execution-acknowledgement").hidden = false; $("execution-acknowledgement").textContent = decision === "terminate" ? "核对决定已记录，这次协作已终止。" : "核对结果已记录，尚未重新执行任务。";
-      await refreshAfterAction(); if (!unsafeCalls().length) { state.reviewOpen = false; $("execution-review-form").hidden = true; }
+      await refreshAfterAction(); if (ownsReview() && !unsafeCalls().length) { state.reviewOpen = false; $("execution-review-form").hidden = true; }
     } catch (error) {
-      if (state.taskId !== taskId) return; errorNode.hidden = false; errorNode.textContent = error.status === 409 ? "执行记录已变化，核对说明已保留。请查看最新记录后再次提交。" : error.message;
+      if (!ownsReview()) return; errorNode.hidden = false; errorNode.textContent = error.status === 409 ? "执行记录已变化，核对说明已保留。请查看最新记录后再次提交。" : error.message;
       if (error.status === 409) await refreshAfterAction();
-    } finally { state.pendingTasks.delete(taskId); if (state.taskId === taskId) { updateBusy(); renderRecovery(); } }
+    } finally { state.pendingTasks.delete(taskId); if (ownsReview()) { updateBusy(); renderRecovery(); } }
   }
   async function requeueCurrent() {
     const execution = state.execution; if (!execution?.can_retry || state.busy) return;
@@ -230,6 +283,9 @@
   }
 
   $("refresh-execution").addEventListener("click", () => loadExecution(true)); $("execution-load-more").addEventListener("click", () => loadExecution(true));
+  $("execution-agent-session").addEventListener("toggle", () => { if ($("execution-agent-session").open && sessionHistory && !sessionHistory.loaded) loadAgentSession(); });
+  $("refresh-agent-session").addEventListener("click", () => loadAgentSession());
+  $("execution-agent-session-more").addEventListener("click", () => loadAgentSession(true));
   $("show-execution-review").addEventListener("click", openReviewForm); $("review-execution-button").addEventListener("click", openReviewForm);
   $("hide-execution-review").addEventListener("click", () => { persistDraft(); state.reviewOpen = false; $("execution-review-form").hidden = true; renderRecovery(); $("review-execution-button").focus(); });
   $("execution-review-form").addEventListener("submit", submitReview);
@@ -237,11 +293,12 @@
   $("execution-review-call").addEventListener("change", () => { const draft = draftFor(); if (draft.callId !== $("execution-review-call").value) { draft.decision = ""; draft.attempt = null; document.querySelectorAll('input[name="execution-decision"]').forEach((input) => { input.checked = false; }); } draft.needsCallChoice = false; persistDraft(); $("execution-review-error").hidden = true; renderReviewCalls(); });
   document.querySelectorAll('input[name="execution-decision"]').forEach((input) => input.addEventListener("change", () => { persistDraft(); renderReviewCalls(); }));
   $("requeue-execution").addEventListener("click", requeueCurrent); $("cancel-execution-run").addEventListener("click", cancelCurrent);
-  $("execution-dialog").addEventListener("close", () => { persistDraft(); state.epoch++; state.loading = false; const taskId = state.taskId; [...document.querySelectorAll("[data-open-execution]")].find((button) => button.dataset.openExecution === taskId)?.focus({ preventScroll: true }); });
+  $("execution-dialog").addEventListener("close", () => { persistDraft(); dialogGeneration++; state.epoch++; state.loading = false; const taskId = state.taskId; [...document.querySelectorAll("[data-open-execution]")].find((button) => button.dataset.openExecution === taskId)?.focus({ preventScroll: true }); });
   $("execution-attempt-list").addEventListener("keydown", (event) => { if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; const buttons = [...$("execution-attempt-list").querySelectorAll("[data-execution-attempt]")]; if (!buttons.length) return; event.preventDefault(); const old = buttons.indexOf(document.activeElement); const index = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (old + (["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1) + buttons.length) % buttons.length; buttons[index].click(); $("execution-attempt-list").querySelector(`[data-execution-attempt="${state.selectedAttempt}"]`)?.focus(); });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("button"); if (!button || button.disabled) return;
     if (button.dataset.openExecution) openExecution(button.dataset.openExecution);
+    if (button.dataset.sessionTask) openExecution(button.dataset.sessionTask);
     if (button.dataset.executionAttempt) { state.selectedAttempt = Number(button.dataset.executionAttempt); state.selectedLatest = false; state.attemptsSignature = ""; $("execution-event-scroll").scrollTop = 0; renderExecution(); }
     if (button.hasAttribute("data-retry-execution")) loadExecution(true);
   });
