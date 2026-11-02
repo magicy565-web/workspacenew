@@ -1,6 +1,6 @@
 # Workspace v0.10: Agent sessions across user turns
 
-**Unreleased development checkpoint.** Core, adapter, HTTP reads and the execution-dialog UI are integrated on `feature/agent-sessions-v0.10`. Actual cross-task model continuation and full UI integration still require acceptance; `main` remains the verified v0.9 baseline. See [development handoff](development-handoff-2026-11-03.md).
+Core, adapter, HTTP reads and the execution-dialog UI are integrated. The 2026-11-03 acceptance includes an actual two-task Codex continuation, exact artifact revisions/downloads, service restart, a real fresh native session after shared-context changes, and desktop/mobile interaction checks. See [v0.10 acceptance and remaining limits](acceptance-v0.10.md). This does not establish full M1/M2 business acceptance or Teamily parity.
 
 This is an independent implementation of persistent room/Agent identity and eligible native host continuation. It is not the QM runtime, a mailbox service, or evidence of Teamily's private routing algorithm. The caller supplies its model and authorized tools. M1 workspace and M2 Agent team execution/continuation are the immediate scope; external commercial networks and marketplaces are excluded.
 
@@ -59,6 +59,10 @@ The claim transaction fingerprints the effective Agent instructions and current 
 Ordinary cancellation is not a factual confirmation of an external side effect. If a cancelled task still has unsafe pending/unknown calls and no audited `terminate` review, its logical session remains blocked for future tasks. Existing `execution.recovery.decision` stays `cancelled`, but `can_reconcile` is true for an authorized editor while unresolved outcomes remain. The existing reconciliation API accepts a confirmed outcome or a note-bearing `terminate`. That records the user's inspection/decision and releases future tasks to a fresh native context; it never revives the cancelled task, asserts that an unknown side effect did not happen, or automatically retries it. This is post-execution recovery review, **not** pre-execution approval of a sensitive action.
 
 When a ready task is blocked only by logical-session ownership/recovery, an empty claim can additionally return `blocked_sessions` (at most 20, with `blocked_sessions_omitted` for additional entries): `[{id,room_id,agent_id,blocked_by_task_id,execution_id,reason,message}]`. The message is human-readable and the execution ID points to the existing review screen. No lease or token is exposed.
+
+Task execution reads also expose `outcome_review_required`, `unresolved_outcome_count` and `outcome_review_terminated`. They describe objective state for all authorized readers, including viewers and read-only tokens. The count covers unsafe unknown outcomes and pending calls whose attempt is no longer active; a normal live pending call is not yet an interrupted unknown result. Audited termination releases the review gate but preserves the unresolved count and the underlying outcome. `can_reconcile` separately controls whether this reader may act. HTTP authorization remains authoritative; membership revocation and token scopes are enforced independently of interface visibility.
+
+The execution dialog distinguishes selection of native continuation from a matching `host_session` receipt for the latest attempt. Missing pages do not prove the absence of a receipt. A receipt is evidence reported by the host, not independent proof of an external side effect. Completed-task links resolve the artifact revision whose recorded task ID matches the task, including earlier versions; they must not silently open a later revision attributed to another task.
 
 ## Read-only integration surface
 

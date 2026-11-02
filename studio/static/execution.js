@@ -12,12 +12,13 @@
   const decisions = { start: "首次执行", restart: "重新执行", continue: "继续已有宿主会话", submit_result: "提交已保存的结果", review_required: "等待核对", completed: "已完成", cancelled: "已取消" };
   const taskStates = { queued: "等待接手", running: "执行中", completed: "已完成", failed: "执行已中断", cancelled: "已取消" };
   const sessionReasons = { first_turn: "这是这个 Agent 在对话中的第一次工作。", matching_completed_turn: "已匹配上次完成工作的上下文。", task_recovery_priority: "沿用这项任务的恢复决定。", no_completed_checkpoint: "上次完成的工作没有可续接记录。", worker_changed: "执行端已变更。", host_changed: "宿主环境已变更。", continuation_unsupported: "当前执行端不支持续接。", agent_instructions_changed: "Agent 指令已变更。", skills_changed: "绑定的技能已变更。", team_permissions_changed: "团队成员或权限已变更。", source_visibility_changed: "可使用的资料已变更。", shared_context_changed: "对话背景已变更。", previous_turn_incomplete: "上一次工作未正常完成。", context_snapshot_unavailable: "此前的工作上下文不可用。" };
-  let sessionHistory = null, dialogGeneration = 0;
+  let sessionHistory = null, dialogGeneration = 0, outputRead = null;
+  const artifactMetadata = new Map();
   const eventTitles = { "attempt.started": "执行端已接手", progress: "执行进度", host_session: "宿主会话已记录", checkpoint: "会话检查点已记录", tool_call: "发起工具调用", tool_result: "工具调用结果", "result.ready": "结果已保存，等待提交", "task.completed": "任务已完成", "task.failed": "执行已中断", "task.cancelled": "任务已取消", "recovery.required": "需要核对外部调用", "recovery.reviewed": "核对决定已记录" };
   const callStates = { pending: "尚无结果", unknown: "结果未确认", succeeded: "已完成", not_executed: "未执行" };
   const reviewDecisions = { confirmed_succeeded: "已确认调用完成", confirmed_not_executed: "已确认没有执行", terminate: "终止本次协作" };
   const reasons = { completion_committed: "完成结果已提交", run_cancelled: "本次协作已取消", external_outcome_unknown: "外部调用的结果尚未确认，需要先核对实际状态。", final_result_durably_staged: "最终结果已保存，无需重新生成。", first_attempt: "首次领取这项任务。", matching_host_checkpoint: "执行端与已有宿主会话匹配。", checkpoint_unavailable_or_host_mismatch: "未匹配到可直接续接的宿主会话。", attempt_limit_reached: "执行次数达到上限，请新建任务。" };
-  const state = { taskId: null, task: null, execution: null, events: new Map(), cursor: 0, hasMore: false, selectedAttempt: null, selectedLatest: true, epoch: 0, loading: false, loadedAt: 0, attemptsSignature: "", summarySignature: "", recoverySignature: "", drafts: new Map(), busy: false, pendingTasks: new Set(), retrying: new Set(), reviewOpen: false, acknowledgementAttempt: null };
+  const state = { taskId: null, task: null, execution: null, events: new Map(), cursor: 0, hasMore: false, eventsLoaded: false, selectedAttempt: null, selectedLatest: true, epoch: 0, loading: false, loadedAt: 0, attemptsSignature: "", summarySignature: "", recoverySignature: "", drafts: new Map(), busy: false, pendingTasks: new Set(), retrying: new Set(), reviewOpen: false, acknowledgementAttempt: null };
   async function api(path, { method = "GET", body } = {}) {
     const response = await fetch(`/api/hub${path}`, { method, headers: body === undefined ? {} : { "Content-Type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     let data; try { data = await response.json(); } catch { throw new Error("服务返回了无效响应。"); }
@@ -28,7 +29,7 @@
   function draftFor(id = state.taskId) { if (!state.drafts.has(id)) state.drafts.set(id, { note: "", decision: "", callId: "", needsCallChoice: false, attempt: null }); return state.drafts.get(id); }
   function currentAttempt() { return [...(state.execution?.attempts || [])].sort((a, b) => b.attempt - a.attempt)[0] || null; }
   function unsafeCalls() { return (state.execution?.recovery?.calls || []).filter((call) => !call.retry_safe && ["pending", "unknown"].includes(call.state)); }
-  function needsOutcomeReview() { return state.execution?.recovery?.decision === "review_required" || (state.execution?.task_status === "cancelled" && state.execution.can_reconcile); }
+  function needsOutcomeReview() { if (typeof state.execution?.outcome_review_required === "boolean") return state.execution.outcome_review_required; return state.execution?.recovery?.decision === "review_required" || (state.execution?.task_status === "cancelled" && state.execution.can_reconcile); }
   function modeLabel(value) { return decisions[value] || value || "尚未领取"; }
   function taskStatus() { return needsOutcomeReview() ? (state.execution?.task_status === "cancelled" ? "已取消 · 结果待核对" : "等待核对") : taskStates[state.execution?.task_status] || state.execution?.task_status || "正在读取"; }
 
@@ -38,7 +39,7 @@
       <details class="execution-agent-session" id="execution-agent-session" hidden><summary aria-label="查看 Agent 会话历程"><span><small>最近一次工作上下文</small><strong id="execution-agent-session-heading"></strong></span><span class="execution-agent-session-mode" id="execution-agent-session-mode"></span></summary><div class="execution-agent-session-body"><p id="execution-agent-session-reason"></p><div class="execution-session-toolbar"><span id="execution-agent-session-status"></span><button class="small-button" id="refresh-agent-session" type="button" aria-label="刷新会话历程">刷新历程</button></div><p class="execution-session-error" id="execution-agent-session-error" role="alert" hidden></p><div id="execution-agent-session-blocked" class="execution-session-blocked" hidden></div><ol class="execution-session-turns" id="execution-agent-session-turns"></ol><section id="execution-agent-delegations" hidden><h3>委派关系</h3><ul id="execution-agent-delegation-list"></ul></section><button class="small-button" id="execution-agent-session-more" type="button" hidden>读取更多工作记录</button></div></details>
       <p class="execution-load-error" id="execution-load-error" role="alert" hidden></p>
       <div class="execution-layout"><aside class="execution-attempts" aria-label="执行批次"><h3 class="execution-attempts-heading">执行批次</h3><div class="execution-attempt-list" id="execution-attempt-list" role="tablist" aria-label="执行批次列表"></div></aside><section class="execution-main" aria-label="执行时间线"><div class="execution-attempt-summary"><div><strong id="execution-selected-heading">正在读取记录</strong><p id="execution-selected-subtitle"></p></div><span class="execution-live-note" id="execution-record-count"></span></div><div class="execution-review-banner" id="execution-review-banner" hidden><strong id="execution-review-heading"></strong><p>这些调用可能已经产生外部变更。请先核对实际结果，避免重复操作。</p><button class="execution-mutation" id="show-execution-review" type="button">核对调用</button></div><div class="execution-event-scroll" id="execution-event-scroll"><ol class="execution-events" id="execution-events"></ol><p class="execution-empty" id="execution-events-empty">正在读取执行记录…</p><button class="small-button" id="execution-load-more" hidden>读取更多事件</button></div></section></div>
-      <section class="execution-recovery" id="execution-recovery"><div class="execution-recovery-summary"><div><h3 id="execution-recovery-title"></h3><p id="execution-recovery-description"></p><details class="execution-session-info" id="execution-session-info" hidden><summary>查看宿主会话记录</summary><pre id="execution-session-content"></pre></details></div></div>
+      <section class="execution-recovery" id="execution-recovery"><div class="execution-recovery-summary"><div><h3 id="execution-recovery-title"></h3><p id="execution-recovery-description"></p><details class="execution-session-info" id="execution-session-info" hidden><summary>查看宿主会话记录</summary><pre id="execution-session-content"></pre></details></div></div><div class="execution-task-outputs" id="execution-task-outputs" aria-label="本次成果" hidden></div><p class="execution-outputs-error" id="execution-outputs-error" role="status" hidden></p>
         <form class="execution-decision execution-mutation" id="execution-review-form" hidden><h4>记录核对结果</h4><label for="execution-review-call">需要核对的调用</label><select id="execution-review-call" aria-label="需要核对的调用"></select><div class="execution-call" id="execution-selected-call" hidden></div><fieldset><legend class="sr-only">核对结果</legend><label><input type="radio" name="execution-decision" value="confirmed_succeeded"><span>已确认调用完成<small>已在对应系统核对，操作已经完成。</small></span></label><label><input type="radio" name="execution-decision" value="confirmed_not_executed"><span>已确认没有执行<small>已核实该操作没有产生外部变更。</small></span></label><label><input type="radio" name="execution-decision" value="terminate"><span>终止本次协作<small>取消这次协作中所有未完成的任务。</small></span></label></fieldset><label for="execution-review-note">核对说明</label><textarea id="execution-review-note" aria-label="核对说明" placeholder="记录你核对到的结果和依据…" maxlength="2000" rows="3" required></textarea><p class="execution-decision-error" id="execution-review-error" role="alert" hidden></p><div class="execution-decision-actions"><button class="secondary-button" id="hide-execution-review" type="button">收起</button><button class="primary-button" id="submit-execution-review" type="submit" aria-label="保存核对结果">保存核对结果</button></div></form>
         <div class="execution-recovery-actions"><button class="secondary-button execution-stop execution-mutation" id="cancel-execution-run" type="button" aria-label="停止本次协作" hidden>停止本次协作</button><span class="execution-recovery-note" id="execution-action-note"></span><button class="secondary-button execution-mutation" id="review-execution-button" type="button" hidden>核对外部调用</button><button class="primary-button execution-mutation" id="requeue-execution" type="button" aria-label="重新排队" hidden>重新排队</button></div><p class="execution-acknowledgement" id="execution-acknowledgement" role="status" hidden></p>
       </section>
@@ -56,6 +57,7 @@
   }
   async function openExecution(taskId, initial = null) {
     dialogGeneration++;
+    state.eventsLoaded = false; outputRead = null; $("execution-task-outputs").hidden = true; $("execution-task-outputs").replaceChildren(); $("execution-outputs-error").hidden = true;
     sessionHistory = null; $("execution-agent-session").open = false; $("execution-agent-session").hidden = true; $("execution-agent-session-turns").replaceChildren(); $("execution-agent-delegation-list").replaceChildren();
     persistDraft(); state.epoch++; state.taskId = taskId; state.task = findTask(taskId); state.execution = initial; state.events = new Map(); state.cursor = 0; state.hasMore = false; state.selectedAttempt = null; state.selectedLatest = true; state.loading = false; state.loadedAt = 0; state.attemptsSignature = ""; state.summarySignature = ""; state.recoverySignature = ""; state.reviewOpen = false; state.busy = state.pendingTasks.has(taskId); state.acknowledgementAttempt = null;
     $("execution-dialog").dataset.executionTaskId = taskId; $("execution-task-title").textContent = state.task?.title || "任务执行记录";
@@ -70,6 +72,7 @@
     try {
       const execution = await api(`/tasks/${encodeURIComponent(taskId)}/execution`); if (epoch !== state.epoch) return;
       if (state.execution && state.execution.id !== execution.id) { state.events.clear(); state.cursor = 0; }
+      if (state.cursor < execution.last_seq) state.eventsLoaded = false;
       state.execution = execution; state.task = findTask(taskId) || state.task;
       renderExecution(); setError("");
       for (let page = 0; page < 4; page++) {
@@ -78,6 +81,7 @@
         state.cursor = result.cursor; state.hasMore = !!result.has_more; renderEvents();
         if (!state.hasMore) break;
       }
+      state.eventsLoaded = !state.hasMore; renderAgentSession(); loadTaskOutputs();
       state.loadedAt = Date.now();
     } catch (error) { if (epoch === state.epoch) { setError(error.message); if (!state.execution) $("execution-events-empty").textContent = "未能读取执行记录"; } }
     finally { if (epoch === state.epoch) { state.loading = false; updateBusy(); } }
@@ -103,7 +107,15 @@
     $("execution-selected-subtitle").textContent = selected ? `${selected.worker_id} · ${stamp(selected.started_at, true)}` : "任务尚未被领取。";
     renderAgentSession(); renderRecovery(); renderEvents();
   }
-  function sessionMode(continuation) { return continuation?.decision === "continue" ? "接着上次工作" : continuation?.decision === "task_recovery" ? "恢复这项工作" : continuation?.decision === "fresh" ? "新的工作上下文" : "上下文方式未提供"; }
+  function sessionMode(continuation) { return continuation?.decision === "continue" ? "已选择接着上次工作" : continuation?.decision === "task_recovery" ? "按本任务记录恢复" : continuation?.decision === "fresh" ? "新的工作上下文" : "上下文方式未提供"; }
+  function continuationReceipt(info) {
+    if (info.continuation?.decision !== "continue") return { label: sessionMode(info.continuation), status: info.continuation?.decision || "unknown" };
+    const expected = info.continuation.checkpoint, attempt = currentAttempt()?.attempt;
+    const matched = expected && [...state.events.values()].some((event) => event.attempt === attempt && event.kind === "host_session" && event.payload.host === expected.host && event.payload.session_id === expected.session_id && event.payload.host_identity === expected.host_identity);
+    if (matched) return { label: "已收到续接回执", status: "confirmed", detail: "执行端回传的宿主会话与上次工作匹配。" };
+    if (!state.eventsLoaded || state.hasMore) return { label: "已选择续接 · 正在读取回执", status: "loading" };
+    return { label: state.execution.active ? "已选择续接 · 等待回执" : "已选择续接 · 未收到匹配回执", status: state.execution.active ? "awaiting" : "not_reported" };
+  }
   function renderAgentSession() {
     const info = state.execution?.agent_session, panel = $("execution-agent-session"); panel.hidden = !info;
     if (!info) { sessionHistory = null; panel.open = false; return; }
@@ -111,8 +123,8 @@
     if (sessionHistory?.id !== info.id) sessionHistory = { id: info.id, session: null, turns: new Map(), delegations: new Map(), cursor: 0, hasMore: false, loading: false, loaded: false };
     const agent = ui()?.getAgents()?.find((item) => item.id === info.agent_id);
     $("execution-agent-session-heading").textContent = `${agent?.name || sessionHistory.session?.agent_name || "Agent"} · 第 ${info.turn_index} 次工作`;
-    $("execution-agent-session-mode").textContent = sessionMode(info.continuation);
-    $("execution-agent-session-reason").textContent = sessionReasons[info.continuation?.reason] || (info.continuation?.reason ? `上下文原因：${info.continuation.reason}` : "服务未提供上下文原因。");
+    const receipt = continuationReceipt(info); $("execution-agent-session-mode").textContent = receipt.label; $("execution-agent-session-mode").dataset.continuationState = receipt.status;
+    $("execution-agent-session-reason").textContent = receipt.detail || sessionReasons[info.continuation?.reason] || (info.continuation?.reason ? `上下文原因：${info.continuation.reason}` : "服务未提供上下文原因。");
     if (panel.open && !sessionHistory.loaded && !sessionHistory.loading) loadAgentSession();
   }
   async function loadAgentSession(more = false) {
@@ -147,6 +159,38 @@
     const edges = [...history.delegations.values()]; $("execution-agent-delegations").hidden = !edges.length;
     $("execution-agent-delegation-list").innerHTML = edges.map((edge) => `<li data-delegation-id="${esc(edge.id)}" data-parent-task-id="${esc(edge.parent_task_id)}" data-child-task-id="${esc(edge.child_task_id)}">${sessionTaskButton(edge.parent_task_id)}<span>委派给</span>${sessionTaskButton(edge.child_task_id)}<details><summary>查看关联记录</summary><p>来源会话：${esc(edge.parent_session_id)}<br>目标会话：${esc(edge.child_session_id)}<br>运行：${esc(edge.run_id)}</p></details></li>`).join("");
     $("execution-agent-session-more").hidden = !history.hasMore;
+  }
+  async function loadTaskOutputs(force = false) {
+    const room = ui()?.getCurrentRoom(); if (state.execution?.task_status !== "completed" || !room || !findTask(state.taskId)) return;
+    const taskId = state.taskId, generation = dialogGeneration, signature = JSON.stringify([room.id, taskId, (room.artifacts || []).map((item) => [item.id, item.version])]);
+    if (!force && outputRead?.signature === signature) return;
+    const read = { signature, items: [], loading: true }; outputRead = read;
+    const owns = () => outputRead === read && dialogGeneration === generation && state.taskId === taskId && ui()?.getCurrentRoom()?.id === room.id && $("execution-dialog").open;
+    $("execution-outputs-error").hidden = true;
+    try {
+      const pending = [...(room.artifacts || [])], found = [];
+      await Promise.all(Array.from({ length: Math.min(3, pending.length) }, async () => {
+        while (pending.length && owns()) {
+          const item = pending.shift(), cacheKey = `${room.id}:${item.id}:${item.version}`;
+          let metadata = artifactMetadata.get(cacheKey);
+          if (!metadata) { const detail = await api(`/artifacts/${encodeURIComponent(item.id)}`); metadata = { id: detail.id, version: detail.version, title: detail.title, versions: detail.versions || [] }; artifactMetadata.set(cacheKey, metadata); }
+          for (const version of metadata.versions.filter((version) => version.task_id === taskId && version.author_type !== "human")) {
+            if (!owns()) return;
+            const exact = await api(`/artifacts/${encodeURIComponent(item.id)}?version=${version.version}`);
+            if (exact.task_id === taskId && exact.version === version.version && exact.author_type !== "human") found.push({ id: exact.id, version: exact.version, title: exact.title });
+          }
+        }
+      }));
+      if (!owns()) return; read.items = found;
+      $("execution-task-outputs").hidden = !found.length;
+      $("execution-task-outputs").innerHTML = found.map((item) => `<button type="button" class="execution-output-button" data-execution-artifact="${esc(item.id)}" data-artifact-version="${item.version}" aria-label="打开本次成果：${esc(item.title)}，版本 ${item.version}">${icon("list")}<span><strong>${esc(item.title)}</strong><small>版本 ${item.version} · 打开 Studio</small></span></button>`).join("");
+    } catch (error) { if (owns()) { $("execution-outputs-error").hidden = false; $("execution-outputs-error").innerHTML = `未能读取本次成果。<button type="button" data-retry-task-outputs>重新读取</button>`; } }
+    finally { if (owns()) read.loading = false; }
+  }
+  async function openTaskOutput(button) {
+    const item = outputRead?.items.find((item) => item.id === button.dataset.executionArtifact && item.version === Number(button.dataset.artifactVersion)); if (!item) return;
+    $("execution-dialog").close(); await ui()?.openArtifact(item.id, item.version);
+    const selected = ui()?.getSelectedArtifact(); if (selected?.id === item.id && selected.version === item.version) { const title = $("artifact-title"); title?.setAttribute("tabindex", "-1"); title?.focus({ preventScroll: true }); }
   }
   function eventTitle(event) {
     if (event.kind === "tool_call") return event.payload.tool || eventTitles.tool_call;
@@ -193,7 +237,7 @@
     if (reviewRequired && execution.task_status === "cancelled") { title = "已停止，外部结果仍待核对"; description = canReview ? "核对或记录终止决定后，后续工作才能继续。这不会恢复已取消的任务。" : "需要有编辑权限的成员处理未确认的外部结果。这项任务仍保持取消。"; }
     else if (reviewRequired) { title = "先核对，再继续"; description = canReview ? "记录核对结果后，再决定是否重新排队。" : active ? "执行端仍持有这个任务，当前不能修改核对结果。" : "当前需要有编辑权限的成员核对外部调用。"; }
     else if (execution.task_status === "completed") { title = "这项任务已完成"; description = "执行记录已保留，可按批次查看。"; }
-    else if (execution.task_status === "cancelled") { title = "这次协作已停止"; description = "未完成的任务已取消，已记录的外部操作不会自动撤销。"; }
+    else if (execution.task_status === "cancelled") { title = execution.outcome_review_terminated ? "已记录终止决定" : "这次协作已停止"; description = execution.outcome_review_terminated && execution.unresolved_outcome_count ? "后续工作可以继续；此前的外部结果仍未确认，终止决定不会撤销已发生的操作。" : "未完成的任务已取消，已记录的外部操作不会自动撤销。"; }
     else if (active) { title = "执行端正在处理任务"; description = "这里显示执行端已回传的活动与结果。"; }
     else if (execution.can_retry) { title = recovery.result_available ? "已有保存的结果" : "可以重新排队"; description = recovery.result_available ? "执行端领取后，可以提交已保存的结果。" : "执行端接手后，会记录它实际继续了已有会话，还是重新执行。"; }
     else if (execution.task_status === "queued") { title = "等待执行端接手"; description = "领取成功后会产生新的执行批次。"; }
@@ -299,6 +343,8 @@
     const button = event.target.closest("button"); if (!button || button.disabled) return;
     if (button.dataset.openExecution) openExecution(button.dataset.openExecution);
     if (button.dataset.sessionTask) openExecution(button.dataset.sessionTask);
+    if (button.dataset.executionArtifact) openTaskOutput(button);
+    if (button.hasAttribute("data-retry-task-outputs")) loadTaskOutputs(true);
     if (button.dataset.executionAttempt) { state.selectedAttempt = Number(button.dataset.executionAttempt); state.selectedLatest = false; state.attemptsSignature = ""; $("execution-event-scroll").scrollTop = 0; renderExecution(); }
     if (button.hasAttribute("data-retry-execution")) loadExecution(true);
   });

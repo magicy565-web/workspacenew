@@ -216,7 +216,12 @@ def _detail(conn, sid):
     active = _active(task, run)
     status = 'completed' if task['status'] == 'completed' else ('cancelled' if run['cancelled'] else hub._task(task)['status'])
     rec = recovery(conn, task, run)
-    needs_review = hub_agent_sessions.unresolved(conn, task['id'])
+    # Objective outcome state is independent of the reader's write permission.
+    # An ordinary live pending call is not yet an uncertain interrupted result;
+    # audited termination releases the review gate without inventing an outcome.
+    unresolved_calls = _unsafe(rec['calls'], active=active)
+    review_terminated = hub_agent_sessions.termination_reviewed(conn, task['id'])
+    needs_review = bool(unresolved_calls) and not review_terminated
     actor = core.REQUEST_ACTOR.get() or {}
     editable = actor.get('role') != 'viewer' and (actor.get('scopes') is None or 'write' in actor['scopes'])
     newer = conn.execute('SELECT 1 FROM hub_runs r JOIN hub_tasks t ON t.run_id=r.id WHERE r.room_id=? AND r.created_at>? AND t.attempts>0 LIMIT 1', (run['room_id'], run['created_at'])).fetchone()
@@ -224,6 +229,9 @@ def _detail(conn, sid):
     return {'id': sid, 'task_id': task['id'], 'run_id': run['id'], 'task_status': status, 'active': active,
             'attempts': attempts, 'last_seq': _last_seq(conn, sid), 'recovery': rec,
             'agent_session': hub_agent_sessions.for_task(conn, task['id']),
+            'outcome_review_required': needs_review,
+            'unresolved_outcome_count': len(unresolved_calls),
+            'outcome_review_terminated': review_terminated,
             'can_reconcile': editable and not active and status != 'completed' and needs_review,
             'can_retry': editable and status == 'failed' and rec['decision'] != 'review_required' and not newer and task['attempts'] < MAX_ATTEMPTS and hub._run(conn, run)['status'] == 'failed',
             'can_cancel': editable and hub._run(conn, run)['status'] not in ('cancelled', 'completed')}
