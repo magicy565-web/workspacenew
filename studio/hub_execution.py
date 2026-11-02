@@ -62,6 +62,8 @@ def session_id(task_id):
 
 def create_session(conn, task_id, stamp):
     conn.execute('INSERT INTO hub_execution_sessions VALUES (?,?,?)', (session_id(task_id), task_id, stamp))
+    from . import hub_agent_sessions
+    hub_agent_sessions.bind_task(conn, task_id, stamp)
 
 
 def _actor(write=False):
@@ -207,19 +209,30 @@ def recovery(conn, task, run, worker_id=None, capabilities=None, host_identity=N
 
 
 def _detail(conn, sid):
+    from . import hub_agent_sessions
     session = hub._find(conn, 'hub_execution_sessions', sid, '执行会话')
     task = hub._find(conn, 'hub_tasks', session['task_id'], '任务')
     run = hub._find(conn, 'hub_runs', task['run_id'], '运行')
     active = _active(task, run)
     status = 'completed' if task['status'] == 'completed' else ('cancelled' if run['cancelled'] else hub._task(task)['status'])
     rec = recovery(conn, task, run)
+    # Objective outcome state is independent of the reader's write permission.
+    # An ordinary live pending call is not yet an uncertain interrupted result;
+    # audited termination releases the review gate without inventing an outcome.
+    unresolved_calls = _unsafe(rec['calls'], active=active)
+    review_terminated = hub_agent_sessions.termination_reviewed(conn, task['id'])
+    needs_review = bool(unresolved_calls) and not review_terminated
     actor = core.REQUEST_ACTOR.get() or {}
     editable = actor.get('role') != 'viewer' and (actor.get('scopes') is None or 'write' in actor['scopes'])
     newer = conn.execute('SELECT 1 FROM hub_runs r JOIN hub_tasks t ON t.run_id=r.id WHERE r.room_id=? AND r.created_at>? AND t.attempts>0 LIMIT 1', (run['room_id'], run['created_at'])).fetchone()
     attempts = [dict(row) for row in conn.execute('SELECT attempt,worker_id,host_identity,decision,reason,started_at FROM hub_execution_attempts WHERE session_id=? ORDER BY attempt', (sid,))]
     return {'id': sid, 'task_id': task['id'], 'run_id': run['id'], 'task_status': status, 'active': active,
             'attempts': attempts, 'last_seq': _last_seq(conn, sid), 'recovery': rec,
-            'can_reconcile': editable and not active and rec['decision'] == 'review_required',
+            'agent_session': hub_agent_sessions.for_task(conn, task['id']),
+            'outcome_review_required': needs_review,
+            'unresolved_outcome_count': len(unresolved_calls),
+            'outcome_review_terminated': review_terminated,
+            'can_reconcile': editable and not active and status != 'completed' and needs_review,
             'can_retry': editable and status == 'failed' and rec['decision'] != 'review_required' and not newer and task['attempts'] < MAX_ATTEMPTS and hub._run(conn, run)['status'] == 'failed',
             'can_cancel': editable and hub._run(conn, run)['status'] not in ('cancelled', 'completed')}
 
@@ -245,11 +258,13 @@ def list_events(sid, after=0, limit=50):
 
 
 def _block(conn, task, reason, calls=None):
+    from . import hub_agent_sessions
     payload = {'reason': reason, 'call_ids': [call['call_id'] for call in calls or []]}
     key = hashlib.sha256(hub._json(payload).encode()).hexdigest()[:32]
     _append(conn, task, 'system:review:' + key, 'recovery.required', payload)
     message = '执行次数达到上限，请新建任务' if reason == 'attempt_limit_reached' else '外部调用结果尚未确认，请先查看执行记录并核对'
     conn.execute('UPDATE hub_tasks SET status=?,worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,progress=NULL,error=?,updated_at=? WHERE id=?', ('failed', message, hub.now(), task['id']))
+    hub_agent_sessions.record_terminal(conn, task, 'task.failed')
     run = hub._find(conn, 'hub_runs', task['run_id'], '运行')
     hub._event(conn, run['room_id'], run['id'], task['id'], 'execution.review_required', '外部调用结果未确认，已暂停自动执行')
 
@@ -327,6 +342,9 @@ def append_event(task_id, worker_id, lease_token, event_id, kind, payload, expec
         attempt = conn.execute('SELECT * FROM hub_execution_attempts WHERE session_id=? AND attempt=?', (sid, task['attempts'])).fetchone()
         if 'host_identity' in payload and attempt and attempt['host_identity'] is not None and payload['host_identity'] != attempt['host_identity']:
             raise hub.HubError('宿主标识与本次领取声明不一致', 409)
+        if kind == 'host_session':
+            from . import hub_agent_sessions
+            hub_agent_sessions.assert_host_session(conn, task, payload)
         if kind == 'checkpoint':
             host = conn.execute("SELECT * FROM hub_execution_events WHERE session_id=? AND kind='host_session' ORDER BY seq DESC LIMIT 1", (sid,)).fetchone()
             if not host or any(json.loads(host['payload_json'])[key] != payload[key] for key in ('host', 'session_id', 'host_identity')) or host['worker_id'] != worker_id:
@@ -372,8 +390,10 @@ def assert_can_retry(conn, run_id):
 
 
 def record_terminal(conn, task, kind, payload):
+    from . import hub_agent_sessions
     _actor(write=kind == 'task.cancelled')
     _append(conn, task, f'system:{kind}:{task["attempts"]}', kind, payload)
+    hub_agent_sessions.record_terminal(conn, task, kind)
 
 
 def _validate_result(conn, task, run, result):
@@ -437,6 +457,7 @@ def read_result(task_id, worker_id, lease_token):
 
 
 def reconcile(sid, request_key, expected_seq, decision, note, call_id=None):
+    from . import hub_agent_sessions
     actor = _actor(write=True)
     request_key = hub._text(request_key, '核对请求键', 120)
     _integer(expected_seq, '预期事件序号')
@@ -456,7 +477,7 @@ def reconcile(sid, request_key, expected_seq, decision, note, call_id=None):
             if old['fingerprint'] != fingerprint:
                 raise hub.HubError('同一核对请求键已用于不同内容', 409)
             return detail
-        if detail['active'] or detail['task_status'] in ('completed', 'cancelled'):
+        if detail['active'] or detail['task_status'] == 'completed' or (detail['task_status'] == 'cancelled' and not hub_agent_sessions.unresolved(conn, detail['task_id'])):
             raise hub.HubError('请先停止或等待当前租约到期；已结束的任务不可核对', 409)
         if detail['last_seq'] != expected_seq:
             raise hub.HubError('执行记录已更新，请重新核对最新状态', 409)
@@ -473,4 +494,5 @@ def reconcile(sid, request_key, expected_seq, decision, note, call_id=None):
             state = 'succeeded' if decision == 'confirmed_succeeded' else 'not_executed'
             conn.execute('UPDATE hub_execution_calls SET state=?,review_seq=? WHERE session_id=? AND call_id=?', (state, event['seq'], sid, call_id))
         conn.execute('INSERT INTO hub_execution_reviews VALUES (?,?,?,?,?)', (sid, owner, request_key, fingerprint, event['seq']))
+        hub_agent_sessions.reviewed(conn, task['id'])
         return _detail(conn, sid)

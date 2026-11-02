@@ -155,12 +155,13 @@ def _db():
             last_seen_at TEXT NOT NULL, expires_at TEXT NOT NULL, disconnected_at TEXT
         );
     ''')
-    from . import files, hub_collaboration, hub_execution, hub_extensions, hub_teams
+    from . import files, hub_agent_sessions, hub_collaboration, hub_execution, hub_extensions, hub_teams
     hub_extensions.ensure_schema(conn)
     files.ensure_schema(conn)
     hub_collaboration.ensure_schema(conn)
     hub_execution.ensure_schema(conn)
     hub_teams.ensure_schema(conn)
+    hub_agent_sessions.ensure_schema(conn)
     conn.execute('BEGIN IMMEDIATE')
     for table, column, definition in (
         ('hub_runs', 'template_id', 'TEXT'),
@@ -191,6 +192,7 @@ def _db():
     stamp = now()
     conn.executemany('INSERT OR IGNORE INTO hub_templates (id,name,description,version,steps_json,builtin,created_at,updated_at) VALUES (?,?,?,1,?,1,?,?)', [(item['id'], item['name'], item['description'], _json(_default_steps(item['id'])), stamp, stamp) for item in TEMPLATES])
     hub_execution.backfill(conn)
+    hub_agent_sessions.backfill(conn)
     conn.commit()
     return conn
 
@@ -752,7 +754,7 @@ def _claim_context(conn, task, run):
 
 
 def claim_task(worker_id, agent_ids=None, room_id=None, session_token=None, capabilities=None, host_identity=None):
-    from . import hub_execution, hub_teams
+    from . import hub_agent_sessions, hub_execution, hub_teams
     worker_id = _text(worker_id, '执行器名称', 120)
     declared_capabilities = hub_execution.normalize_capabilities(capabilities)
     host_identity = hub_execution.normalize_host_identity(host_identity)
@@ -779,6 +781,7 @@ def claim_task(worker_id, agent_ids=None, room_id=None, session_token=None, capa
         stamp = now()
         rows = conn.execute('SELECT * FROM hub_runs WHERE cancelled=0 ORDER BY created_at,rowid').fetchall()
         blocked_rooms = set()
+        blocked_sessions = {}
         for raw_run in rows:
             if room_id is not None and raw_run['room_id'] != room_id:
                 continue
@@ -786,6 +789,12 @@ def claim_task(worker_id, agent_ids=None, room_id=None, session_token=None, capa
             if run['room_id'] in blocked_rooms:
                 continue
             if run['status'] in ('completed', 'failed', 'cancelled'):
+                if run['status'] == 'failed':
+                    for task in run['tasks']:
+                        if agent_ids is None or task['agent_id'] in agent_ids:
+                            blocked = hub_agent_sessions.current_blocker(conn, task['id'])
+                            if blocked:
+                                blocked_sessions[blocked['id']] = blocked
                 continue
             blocked_rooms.add(run['room_id'])
             if any(task['status'] == 'failed' for task in run['tasks']):
@@ -795,21 +804,35 @@ def claim_task(worker_id, agent_ids=None, room_id=None, session_token=None, capa
                 if task['status'] != 'queued' or (agent_ids is not None and task['agent_id'] not in agent_ids) or not set(task['depends_on']).issubset(done):
                     continue
                 hub_teams.assert_assignment(conn, raw_run, task['agent_id'])
-                rec = hub_execution.prepare_claim(conn, _find(conn, 'hub_tasks', task['id'], '任务'), raw_run, worker_id, declared_capabilities, host_identity)
+                raw_task = _find(conn, 'hub_tasks', task['id'], '任务')
+                blocked = hub_agent_sessions.claim_blocker(conn, raw_task)
+                if blocked:
+                    blocked_sessions[blocked['id']] = blocked
+                    continue
+                rec = hub_execution.prepare_claim(conn, raw_task, raw_run, worker_id, declared_capabilities, host_identity)
                 if rec is None:
+                    blocked = hub_agent_sessions.current_blocker(conn, task['id'])
+                    if blocked:
+                        blocked_sessions[blocked['id']] = blocked
                     break
+                context = _claim_context(conn, raw_task, raw_run)
+                agent_session = hub_agent_sessions.prepare_claim(conn, raw_task, raw_run, worker_id, declared_capabilities, host_identity, rec, context)
                 token = secrets.token_urlsafe(32)
                 expires = _expiry()
                 conn.execute('UPDATE hub_tasks SET status=?,worker_id=?,lease_token=?,lease_expires_at=?,attempts=attempts+1,progress=NULL,error=NULL,updated_at=? WHERE id=?', ('running', worker_id, token, expires, stamp, task['id']))
                 claimed = _find(conn, 'hub_tasks', task['id'], '任务')
                 execution = hub_execution.record_claim(conn, claimed, declared_capabilities, host_identity, rec)
+                execution['agent_session'] = agent_session
                 _event(conn, run['room_id'], run['id'], task['id'], 'task.claimed', f'{worker_id} 开始执行：{task["title"]}')
-                return {'task': _task(claimed, stamp), 'lease_token': token, 'lease_expires_at': expires, 'context': _claim_context(conn, claimed, raw_run), 'execution': execution}
-        return {'task': None}
+                return {'task': _task(claimed, stamp), 'lease_token': token, 'lease_expires_at': expires, 'context': context, 'execution': execution}
+        result = {'task': None}
+        if blocked_sessions:
+            result.update(blocked_sessions=list(blocked_sessions.values())[:20], blocked_sessions_omitted=max(0, len(blocked_sessions) - 20))
+        return result
 
 
 def _owned(conn, task_id, worker_id, lease_token, completed=False):
-    from . import hub_teams
+    from . import hub_agent_sessions, hub_teams
     worker_id = _text(worker_id, '执行器名称', 120)
     lease_token = _text(lease_token, '任务凭据', 200)
     task = _find(conn, 'hub_tasks', task_id, '任务')
@@ -823,6 +846,7 @@ def _owned(conn, task_id, worker_id, lease_token, completed=False):
     hub_teams.assert_assignment(conn, run, task['agent_id'])
     if task['status'] != 'running' or not task['lease_expires_at'] or task['lease_expires_at'] <= now():
         raise HubError('任务租约已失效，请重新领取', 409)
+    hub_agent_sessions.assert_owned(conn, task)
     return task, run
 
 
@@ -965,6 +989,8 @@ def complete_task(task_id, worker_id, lease_token, result):
                     continue
                 dependencies = [created[key] for key in item['depends_on']] or [task_id]
                 created[item['key']] = _new_task(conn, run['room_id'], run['id'], item['agent_id'], item['title'], item['instructions'], dependencies)
+                from . import hub_agent_sessions
+                hub_agent_sessions.delegation(conn, task_id, created[item['key']], run['id'], stamp)
         conn.execute('UPDATE hub_tasks SET status=?,result_json=?,completion_hash=?,lease_expires_at=NULL,progress=NULL,updated_at=? WHERE id=?', ('completed', raw, digest, stamp, task_id))
         conn.execute('INSERT INTO hub_messages (id,room_id,role,text,agent_id,run_id,task_id,created_at) VALUES (?,?,?,?,?,?,?,?)', (uuid4().hex, run['room_id'], 'agent', message, task['agent_id'], run['id'], task_id, stamp))
         hub_execution.record_terminal(conn, task, 'task.completed', {'sha256': digest})

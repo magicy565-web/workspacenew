@@ -51,7 +51,7 @@ class WorkspaceServer(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'AgentWorkspace/0.9'
+    server_version = 'AgentWorkspace/0.10'
 
     def setup(self):
         super().setup()
@@ -93,7 +93,7 @@ class Handler(BaseHTTPRequestHandler):
             if selected_root is not None:
                 core.REQUEST_DATA_ROOT.set(selected_root)
             if self.principal and not self.principal.get('local') and self.principal.get('workspace'):
-                core.REQUEST_ACTOR.set({'user_id': self.principal['user']['id'], 'user_name': self.principal['user']['name'], 'workspace_id': self.principal['workspace']['id'], 'role': self.principal['workspace']['role']})
+                core.REQUEST_ACTOR.set({'user_id': self.principal['user']['id'], 'user_name': self.principal['user']['name'], 'workspace_id': self.principal['workspace']['id'], 'role': self.principal['workspace']['role'], 'scopes': self.principal.get('scopes')})
         except hub.HubError as exc:
             self._send(exc.status, {'error': str(exc)})
             return False

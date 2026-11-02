@@ -1,5 +1,7 @@
 # Agent Workspace · Buyer Magazine Studio
 
+当前版本 **v0.10** 已完成真实 Codex 跨任务续接、服务重启持久化、上下文变化后的新会话，以及桌面/手机“执行记录→确切成果版本→下载→继续输入”的验收。具体范围与剩余问题见 [v0.10 验收记录](docs/acceptance-v0.10.md)。关键动作的执行前审批和完整买手开发业务验收仍待完成。
+
 一个可自托管、由调用方 Agent 提供模型能力的协作平台工程。工作区负责会话、分工、执行状态、资料和成果；买手杂志保留为独立应用，入口是 `/magazines`。
 
 当前按 QM-TT 的 [产品范围与验收](docs/product-scope.md) 推进：先完成 M1 Workspace + M2 Agent Team，验证真实买手开发流程及同会话的后续工作；Marketplace 留到之后。
@@ -58,6 +60,7 @@ macOS/Linux 将 Python 路径换成 `.venv/bin/python`。打开 [本机工作区
 | 协作团队 | 固定成员与持续群聊，自动分工或显式点名，成员变更记录及旧任务撤销；团队与工作流独立；[v0.9 契约](docs/workspace-contract-v0.9.md) |
 | 工作流与执行器 | 可编辑、带版本的工作流；执行器注册与在线状态独立于任务状态；[v0.4 契约](docs/workspace-contract-v0.4.md) |
 | 执行记录与恢复 | 事件分页、旧租约隔离、同事件幂等、宿主会话续接、结果恢复和未知调用核对；[v0.8 契约](docs/workspace-contract-v0.8.md) |
+| 连续 Agent 会话 | 同房间/Agent 的稳定身份、跨任务原生续接、上下文变化失效、真实委派历程、精确成果版本入口；[v0.10 契约](docs/workspace-contract-v0.10.md) |
 | 成果 Studio | 精确版本预览/下载、人工编辑、版本审核；评论与 Agent 修改流程见 [v0.7 契约](docs/workspace-contract-v0.7.md) |
 | 技能与周期计划 | 技能版本和角色绑定，固定间隔调度、暂停和历史；[v0.5 契约](docs/workspace-contract-v0.5.md) |
 | 文件与搜索 | 原始文件、文本提取、来源及撤销、空间内关键词搜索；没有把关键词搜索称为语义记忆；[v0.6 契约](docs/workspace-contract-v0.6.md) |
