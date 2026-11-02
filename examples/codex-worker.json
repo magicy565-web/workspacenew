@@ -1,0 +1,9 @@
+{
+  "worker_id": "my-codex-worker",
+  "name": "我的 Codex",
+  "agent_ids": ["coordinator", "researcher", "writer", "designer", "developer", "reviewer"],
+  "command": ["python", "-m", "studio.codex_executor"],
+  "timeout_seconds": 960,
+  "output_protocol": "jsonl",
+  "capabilities": ["codex-cli", "structured-artifacts", "read-only-sandbox", "execution-events-v1", "continuation:codex"]
+}

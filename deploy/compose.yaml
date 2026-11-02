@@ -1,0 +1,48 @@
+services:
+  app:
+    image: agent-workspace:local
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        INSTALL_MCP: ${INSTALL_MCP:-0}
+    environment:
+      STUDIO_AUTH_MODE: required
+      STUDIO_PUBLIC_ORIGIN: ${STUDIO_PUBLIC_ORIGIN:?Set an HTTPS origin in deploy/.env}
+      STUDIO_DATA_DIR: ${STUDIO_DATA_DIR:-/data}
+    volumes:
+      - workspace_data:/data
+    expose:
+      - "8000"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      STUDIO_PUBLIC_ORIGIN: ${STUDIO_PUBLIC_ORIGIN:?Set an HTTPS origin in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  workspace_data:
+    name: ${STUDIO_DATA_VOLUME:-agent-workspace-data}
+  caddy_data:
+  caddy_config:

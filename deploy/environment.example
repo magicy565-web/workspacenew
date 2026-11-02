@@ -1,0 +1,4 @@
+STUDIO_PUBLIC_ORIGIN=https://workspace.example.com
+STUDIO_DATA_VOLUME=agent-workspace-data
+STUDIO_DATA_DIR=/data
+INSTALL_MCP=0

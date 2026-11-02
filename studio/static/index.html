@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Buyer Magazine Studio</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar" aria-label="项目列表">
+    <div class="sidebar-top"><div class="brand-symbol" aria-hidden="true">B<span>✳</span></div><button class="icon-button sidebar-close" id="close-sidebar" aria-label="关闭侧栏">×</button></div>
+    <button class="new-chat" id="new-chat"><span class="new-icon">＋</span><span>新建杂志</span></button>
+    <div class="sidebar-heading">最近项目</div>
+    <nav id="sidebar-projects" class="project-nav" aria-label="最近项目"></nav>
+    <div class="sidebar-bottom"><span class="avatar">B</span><span>本地工作区</span></div>
+  </aside>
+
+  <div class="main-shell">
+    <header class="topbar"><div class="topbar-left"><button id="open-sidebar" class="icon-button menu-button" aria-label="打开侧栏">☰</button><div class="product-name">Buyer Magazine <span>Studio</span></div></div><div class="top-actions"><button id="refresh-project" class="icon-button" aria-label="刷新项目" title="刷新项目" hidden>↻</button><button id="open-workspace-top" class="top-workspace" hidden>工作区 <span>↗</span></button></div></header>
+    <main class="conversation" id="conversation">
+      <section class="welcome" id="welcome"><div class="welcome-mark" aria-hidden="true">B<span>✳</span></div><h1>想为哪家企业制作杂志？</h1></section>
+      <section class="chat" id="project-view" hidden>
+        <div id="messages" class="messages"></div>
+        <article class="assistant-turn"><div class="assistant-avatar" aria-hidden="true">B</div><div class="assistant-content"><p class="assistant-title">已准备好 <strong id="project-name"></strong>。</p><p id="assistant-status" class="assistant-status"></p>
+          <button id="magazine-card" class="magazine-card" type="button"><span class="cover-art"><img id="cover-image" alt="杂志封面" hidden><span id="cover-fallback" class="cover-fallback">B<span>✳</span></span></span><span class="cover-description"><strong id="magazine-title">杂志工作区</strong><span id="preview-label">等待资料</span><span class="cover-link">打开工作区 ↗</span></span></button>
+          <div class="turn-actions"><button class="quiet-button" id="copy-task">复制任务</button><button class="quiet-button" id="open-workspace">打开工作区</button><a class="quiet-button" id="download" hidden>下载杂志</a></div>
+        </div></article>
+      </section>
+    </main>
+    <div class="composer-wrap"><form id="composer" class="composer"><button id="composer-add" class="composer-add" type="button" aria-label="打开工作区" title="打开工作区">＋</button><label for="composer-input" class="sr-only">输入企业网址或修改要求</label><textarea id="composer-input" rows="1" maxlength="4000" placeholder="输入企业网址，开始制作杂志"></textarea><button id="send" class="send-button" type="submit" aria-label="发送">↑</button></form></div>
+  </div>
+
+  <aside id="workspace-panel" class="workspace-panel" aria-label="杂志工作区" hidden>
+    <header class="panel-header"><h2>工作区</h2><button id="close-workspace" class="icon-button" aria-label="关闭工作区">×</button></header>
+    <div class="panel-tabs" role="tablist" aria-label="工作区"><button class="tab active" data-tab="preview" role="tab" aria-selected="true">预览</button><button class="tab" data-tab="design" role="tab" aria-selected="false">设计</button><button class="tab" data-tab="brief" role="tab" aria-selected="false">资料</button></div>
+    <div class="panel-body">
+      <section id="panel-preview" class="panel-section"><div class="preview-top"><div><h3>杂志预览</h3><p id="panel-preview-status"></p></div><a id="open-preview" class="small-button" target="_blank" rel="noopener" hidden>打开 ↗</a></div><div id="preview-placeholder" class="preview-placeholder"><div class="placeholder-sheet"><span>Buyer</span><em>Magazine</em></div><p>生成后在这里预览</p></div><iframe id="preview-frame" title="杂志预览" sandbox="allow-scripts allow-popups" hidden></iframe><div class="preview-actions"><button id="build" class="primary-button">生成杂志</button><a id="panel-download" class="small-button" hidden>下载</a></div></section>
+      <section id="panel-design" class="panel-section" hidden><h3>封面布局</h3><div class="cover-options" role="group" aria-label="封面布局"><button class="cover-option" data-cover="full_bleed" aria-pressed="false"><span class="cover-sketch bleed"><i></i><b></b></span><strong>全幅</strong></button><button class="cover-option" data-cover="split" aria-pressed="false"><span class="cover-sketch split"><i></i><b></b></span><strong>图文</strong></button></div><h3 class="palette-title">配色与字体</h3><div class="theme-options" role="group" aria-label="配色与字体"><button class="theme-option" data-theme="classic" aria-pressed="false"><span class="swatches"><i></i><i></i><i></i></span><span><strong>温润</strong><small>暖色调 · 衬线字体</small></span></button><button class="theme-option" data-theme="modern" aria-pressed="false"><span class="swatches"><i></i><i></i><i></i></span><span><strong>清晰</strong><small>冷色调 · 无衬线字体</small></span></button><button class="theme-option" data-theme="bold" aria-pressed="false"><span class="swatches"><i></i><i></i><i></i></span><span><strong>鲜明</strong><small>暖红色 · 衬线字体</small></span></button></div><button id="apply-design" class="primary-button full-width">应用并生成</button><p class="design-note">应用后会重新生成当前杂志。</p></section>
+      <section id="panel-brief" class="panel-section" hidden><div class="brief-heading"><h3>编辑简报</h3><button class="text-button" id="load-example">示例结构</button></div><div class="data-counts"><span><b id="count-sources">0</b> 条来源</span><span><b id="count-chapters">0</b> 个章节</span><span><b id="count-images">0</b> 张图片</span></div><label class="sr-only" for="brief">编辑简报 JSON</label><textarea id="brief" spellcheck="false" placeholder="等待 Agent 提交简报，或在这里粘贴 JSON…"></textarea><div class="brief-actions"><label class="small-button file-label" for="files">上传图片</label><input id="files" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple hidden><button id="save-brief" class="small-button">保存简报</button></div><div id="image-list" class="image-list"></div></section>
+    </div>
+  </aside>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

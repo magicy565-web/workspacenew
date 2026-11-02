@@ -1,0 +1,39 @@
+# Workspace collaboration contract v0.7
+
+Independent implementation of comments → modification task → artifact version. This is not a claim about Teamily's private backend. All paths below are under `/api/hub`; existing account middleware supplies workspace isolation and write/execute scopes. Viewer accounts cannot mutate discussion or requests. Existing reviews and manual edits remain separate.
+
+## Comments
+
+- `GET /artifacts/{id}/comments?version=N` → `{comments:[Comment], revision:string}`. Omitting version lists all artifact versions. Flat chronological list; replies carry `parent_id`. A thread always belongs to its original `artifact_version`; there is no automatic reanchoring to later versions.
+- `POST /artifacts/{id}/comments` body `{artifact_version:int, body:string, parent_id?:string, anchor?:{quote:string}, request_key:string}` → `Comment` (201). `request_key` is required, 1–120 chars; keep the same key when retrying the identical submission. Same key + different input rejects 409. Reply must target a root comment on this same artifact/version; nested replies are rejected. Replies inherit the root anchor and cannot supply a different anchor.
+- `GET /comments/{id}` → `Comment` plus `history:[CommentSnapshot]` (all immutable revisions).
+- `PUT /comments/{id}` body `{base_version:int, body?:string, status?:"open"|"resolved"}` → updated `Comment`. `base_version` is the **comment revision**, not artifact version. Stale edits reject 409. Only roots resolve/reopen; replies may edit body. Anchor, author and artifact version remain immutable. Every edit appends an immutable snapshot. No delete API in this release.
+
+`Comment`: `{id,artifact_id,artifact_version,parent_id,body,anchor,status,version,author_id,author_name,created_at,updated_at}`. Anchor: `{type:"document"|"quote",quote?:string,status:"document"|"matched"|"ambiguous"|"missing",matches:int}`. A quote is checked literally against the saved source content. Only exactly one occurrence is `matched`; invalid/repeated quotes remain visible with truthful status. No DOM coordinates or claimed mapping across versions. UI must not render ambiguous/missing anchors as successful positioning.
+
+Comment body max 4,000 characters / 16 KiB UTF-8; quote max 2,000 characters / 8 KiB. At most 500 comments including replies per artifact. List responses omit history; the detail endpoint preserves edit evidence.
+
+## Modification requests
+
+- `GET /artifacts/{id}/modifications` → `{modifications:[Modification], revision:string}`; list entries omit the large `snapshot` and `candidate.content`.
+- `POST /artifacts/{id}/modifications` body `{base_version:int, comment_ids:[root_id,...], instructions?:string, agent_id?:string, request_key:string}` → full `Modification` (201). Here `base_version` is the **artifact version being viewed**; it may be historical. Select 1–20 distinct root comments from this artifact and exact version. All current replies under each selected root are frozen automatically. Default executor is the baseline version's source task Agent; explicit `agent_id` may choose an existing Agent and is recorded. No silent fallback or claim that the worker is online. Submission freezes content, comments/replies, author and source Agent provenance; request creation and its one real task are one SQLite transaction. Concurrent duplicate submission returns the same request/task. Retrying a key after comments change still returns its original frozen request; changing explicit submission fields with that key rejects 409.
+- `GET /modifications/{id}` → full `Modification`.
+- `POST /modifications/{id}/apply` body `{base_version:int, request_key:string}` → full `Modification`. Only a completed conflict candidate may be applied. `base_version` must equal the **current** artifact version, confirming replacement with the candidate's exact content; no automatic merge. Same key is idempotent; stale current version rejects 409 without consuming the key.
+
+`Modification`: `{id,artifact_id,room_id,base_version,source_task_id,source_agent_id,agent_id,run_id,task_id,created_by,created_by_name,created_at,updated_at,status,task_status,error,result_version,candidate?,snapshot?}`. `status` is `queued|running|failed|cancelled|completed|conflict`; it derives from the existing task/run, except a completed task with a saved unapplied candidate displays `conflict`. `task_status` always exposes the real task state. `candidate` is `{title,kind,content?,sha256,created_at}`. `result_version` is null until an artifact version is actually committed.
+
+`snapshot` is immutable: `{request_id,artifact_id,base_version,baseline:{title,kind,content,sha256},source:{task_id,agent_id,agent_name,author_type,author_id,author_name},agent:{id,name,description,instructions,builtin},instructions,comments:[CommentSnapshot],created_by,created_by_name}`. Replies and comment revisions are captured at submission time. Later comment edits/replies, artifact edits, and Agent instruction changes do not change this snapshot.
+
+Limits: instructions ≤8,000 characters / 32 KiB; baseline UTF-8 content ≤128 KiB; selected comments including replies ≤100 records and ≤64 KiB serialized JSON. Snapshot plus frozen Agent descriptor ≤192 KiB serialized JSON. Larger inputs return **413 before creating any request/run/task**; callers must narrow the discussion or split the artifact. The baseline is never silently shortened or omitted.
+
+## Worker and result semantics
+
+Existing `POST /tasks/claim` returns task metadata including `modification_request_id`. For these tasks `context.modification` contains the entire immutable snapshot above and `context.agent` is the frozen selected Agent. This essential context is inserted **before** optional room history, sources, skills and other artifacts; existing explicit `omissions` remain. Total claim context stays ≤256 KiB. `context.modification.baseline` is authoritative, even if a later artifact version appears in optional room history.
+
+Use the existing `/tasks/{id}/complete` envelope. A modification must return `{message,artifacts:[{id:TARGET_ID,base_version:BASELINE_VERSION,title,kind,content}]}`: exactly one target artifact, no new artifact, no other target and no plan. The existing authenticated task binding supplies the request ID; no added result field is required, preserving current executors. An optional `modification_request_id` must equal the bound request. Server stores that request ID and `source_version` in the new artifact version and version list.
+
+If latest version still equals the frozen baseline, completion atomically saves the next version, marks the task completed and sets `result_version`. Otherwise completion **still succeeds as a real task completion**, atomically retains the exact candidate, displays `status:"conflict"`, and does not overwrite or increment the artifact. Candidate content remains readable through request detail. User may explicitly apply it with current-version confirmation or submit a fresh request against the new baseline/comments. Identical complete retries are idempotent; different results, stale leases, cancelled tasks and cross-target results reject without changes.
+
+Cancel and failure/retry reuse `POST /runs/{run_id}/cancel`, `/runs/{run_id}/retry`, `/tasks/{task_id}/fail`. Failed retry reuses the same snapshot and task. Existing newer-started-run retry restrictions remain. A cancelled request cannot be revived; submit a new request. Neither completion nor candidate application resolves comments or approves a version automatically.
+
+Artifact GET includes `modification_request_id` and `source_version` for the selected version and each version-history row; normal/manual versions have null values. No lease/session credentials are exposed in public request or comment responses. HTTP malformed input uses 400, missing entities 404, optimistic/key conflicts 409 and bounded-input overflow 413.

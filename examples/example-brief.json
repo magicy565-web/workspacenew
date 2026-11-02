@@ -1,0 +1,21 @@
+{
+  "brand": "Fictional Example",
+  "title": "A buyer's introduction",
+  "edition": "DEMO ONLY",
+  "description": "Fictional example showing the editorial data format, not a real supplier.",
+  "buyer_question": "What information would a buyer need to evaluate this fictional product?",
+  "contact_url": "https://example.com/contact",
+  "cta": "View the example contact page",
+  "source_note": "This is a synthetic demonstration. Replace all sample content with verified company research before use.",
+  "sources": [
+    {"id": "S01", "label": "Example source — replace with a real source", "url": "https://example.com/", "observed": "2026-01-01", "scope": "Synthetic illustration only; not evidence about a real company"}
+  ],
+  "images": [
+    {"file": "example.png", "role": "illustration", "rights_status": "synthetic_demo_not_a_product_photo", "note": "Generated abstract placeholder; replace with permissioned real product imagery."}
+  ],
+  "chapters": [
+    {"kind": "cover", "nav": "Introduction", "eyebrow": "DEMO ONLY", "title": "A fictional buyer edit.", "accent": "", "lead": "Replace this example with a researched, source-tagged story.", "image": "example.png", "alt": "Abstract synthetic illustration; not a product", "image_note": "Synthetic illustration · not a product photo"},
+    {"kind": "thesis", "nav": "The buyer question", "title": "Start with what can be verified.", "lead": "This text is illustrative, not a claim about a supplier.", "reasons": [{"title": "Research", "body": "Add a source and scope to each important claim.", "source": "S01"}]},
+    {"kind": "closing", "nav": "Next steps", "title": "Ask for details.", "lead": "Use an approved destination and confirm terms with the supplier.", "body": "This example has no actual product or supplier offer.", "image": "example.png", "alt": "Abstract synthetic illustration", "inquiry_lines": ["Example only: replace with a specific buyer inquiry."], "note": "This synthetic example does not send a message."}
+  ]
+}

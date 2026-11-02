@@ -1,0 +1,4 @@
+{$STUDIO_PUBLIC_ORIGIN} {
+    reverse_proxy app:8000
+    header -Server
+}
