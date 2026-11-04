@@ -19,6 +19,7 @@ from . import core, hub
 
 MAX_FILE = 8 * 1024 * 1024
 MAX_TEXT = 900 * 1024
+MAX_JSON_DEPTH = 32
 MAX_EXTRACT_OUTPUT = 6 * MAX_TEXT + 4096
 _extractors = threading.BoundedSemaphore(2)
 MIMES = {'.txt': 'text/plain', '.md': 'text/markdown', '.csv': 'text/csv', '.json': 'application/json', '.pdf': 'application/pdf', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp'}
@@ -94,7 +95,22 @@ def _extract(raw, extension):
             if '\x00' in text:
                 raise ValueError
             if extension == '.json':
-                json.loads(text, parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
+                value = json.loads(text, parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
+                # Decoder recursion limits vary across Python versions. Enforce
+                # our own document bound without recursively walking user data.
+                pending = [(iter((value,)), 0)]
+                while pending:
+                    children, depth = pending[-1]
+                    try:
+                        item = next(children)
+                    except StopIteration:
+                        pending.pop()
+                        continue
+                    if isinstance(item, (dict, list)):
+                        if depth >= MAX_JSON_DEPTH:
+                            raise ValueError('JSON nesting exceeds document limit')
+                        children = item.values() if isinstance(item, dict) else item
+                        pending.append((iter(children), depth + 1))
         except (UnicodeError, ValueError, RecursionError) as exc:
             raise hub.HubError('请上传有效的 UTF-8 文本文件') from exc
         if not text.strip():

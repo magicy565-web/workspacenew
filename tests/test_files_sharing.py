@@ -170,6 +170,17 @@ class FilesSharingTests(unittest.TestCase):
             files._extractors.release()
         self.assertEqual(self.upload(room, 'after-recovery.pdf', raw)['extraction_status'], 'extracted')
 
+    def test_json_depth_is_explicit_and_independent_of_decoder_recursion_limit(self):
+        for opening, closing in ((b'[', b']'), (b'{"x":', b'}')):
+            with self.subTest(container=opening):
+                allowed = opening * files.MAX_JSON_DEPTH + b'0' + closing * files.MAX_JSON_DEPTH
+                self.assertEqual(files._extract(allowed, '.json')['text'], allowed.decode())
+                for depth in (files.MAX_JSON_DEPTH + 1, 3000):
+                    self.assert_error(400, files._extract, opening * depth + b'0' + closing * depth, '.json')
+        # JSON syntax inside strings is content, not additional nesting.
+        quoted = json.dumps({'text': '[{\\"' * 100}).encode()
+        self.assertEqual(files._extract(quoted, '.json')['text'], quoted.decode())
+
     def test_image_has_no_invented_ocr_and_invalid_inputs_leave_no_files(self):
         room = self.room()
         png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5VIAAAAASUVORK5CYII=')
