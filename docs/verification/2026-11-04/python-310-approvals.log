@@ -1,0 +1,44 @@
+test_audit_failure_rolls_back_consumption_atomically (test_action_approvals.ActionApprovalsTests) ... ok
+test_authority_revision_change_blocks_approval_and_consumption (test_action_approvals.ActionApprovalsTests) ... ok
+test_authorizer_cannot_mutate_stored_action (test_action_approvals.ActionApprovalsTests) ... ok
+test_authorizer_exception_rolls_back_without_consuming (test_action_approvals.ActionApprovalsTests) ... ok
+test_authorizer_required_and_fail_closed (test_action_approvals.ActionApprovalsTests) ... ok
+test_concurrent_consumers_use_approval_once (test_action_approvals.ActionApprovalsTests) ... ok
+test_concurrent_identical_requests_create_one_record (test_action_approvals.ActionApprovalsTests) ... ok
+test_concurrent_revocation_and_consumption_are_serialized (test_action_approvals.ActionApprovalsTests) ... ok
+test_consumed_permission_cannot_be_undone_by_revocation (test_action_approvals.ActionApprovalsTests) ... ok
+test_digest_binds_authority_and_exact_canonical_envelope (test_action_approvals.ActionApprovalsTests) ... ok
+test_exact_digest_required_for_decision_and_consumption (test_action_approvals.ActionApprovalsTests) ... ok
+test_expired_request_retry_does_not_create_fresh_approval (test_action_approvals.ActionApprovalsTests) ... ok
+test_expiry_boundary_blocks_consumption (test_action_approvals.ActionApprovalsTests) ... ok
+test_expiry_boundary_blocks_pending_approval (test_action_approvals.ActionApprovalsTests) ... ok
+test_expiry_is_checked_after_live_authorization (test_action_approvals.ActionApprovalsTests) ... ok
+test_expiry_must_be_finite_integer_in_next_day (test_action_approvals.ActionApprovalsTests) ... ok
+test_failed_expired_consumption_commits_expiration (test_action_approvals.ActionApprovalsTests) ... ok
+test_failed_expired_decision_commits_expiration (test_action_approvals.ActionApprovalsTests) ... ok
+test_human_without_decide_grant_cannot_approve (test_action_approvals.ActionApprovalsTests) ... ok
+test_invalid_json_and_budgets_rejected (test_action_approvals.ActionApprovalsTests) ... ok
+test_live_grant_revocation_blocks_execution (test_action_approvals.ActionApprovalsTests) ... ok
+test_no_schema_collision_or_existing_data_changes (test_action_approvals.ActionApprovalsTests) ... ok
+test_observed_expiry_is_terminal_after_clock_rollback (test_action_approvals.ActionApprovalsTests) ... ok
+test_only_bound_worker_can_consume (test_action_approvals.ActionApprovalsTests) ... ok
+test_other_requester_cannot_reuse_action_key (test_action_approvals.ActionApprovalsTests) ... ok
+test_pending_and_approved_can_be_revoked (test_action_approvals.ActionApprovalsTests) ... ok
+test_pending_cannot_be_consumed (test_action_approvals.ActionApprovalsTests) ... ok
+test_process_exit_after_consumption_does_not_restore_permission (test_action_approvals.ActionApprovalsTests) ... ok
+test_rejection_is_terminal (test_action_approvals.ActionApprovalsTests) ... ok
+test_request_starts_pending_with_immutable_copy (test_action_approvals.ActionApprovalsTests) ... ok
+test_reusing_key_cannot_change_action_parameters_budget_or_expiry (test_action_approvals.ActionApprovalsTests) ... ok
+test_revocation_can_close_an_approval_with_stale_authority (test_action_approvals.ActionApprovalsTests) ... ok
+test_revocation_requires_human_and_nonempty_reason (test_action_approvals.ActionApprovalsTests) ... ok
+test_same_action_key_is_separate_in_an_authorized_second_workspace (test_action_approvals.ActionApprovalsTests) ... ok
+test_same_request_key_is_idempotent_including_after_consumption (test_action_approvals.ActionApprovalsTests) ... ok
+test_successful_approval_is_not_execution_and_consumes_once (test_action_approvals.ActionApprovalsTests) ... ok
+test_unknown_fields_missing_budget_and_oversized_payload_rejected (test_action_approvals.ActionApprovalsTests) ... ok
+test_worker_cannot_approve_even_with_decide_grant (test_action_approvals.ActionApprovalsTests) ... ok
+test_workspace_isolation_for_read_request_decide_and_consume (test_action_approvals.ActionApprovalsTests) ... ok
+
+----------------------------------------------------------------------
+Ran 39 tests in 0.711s
+
+OK

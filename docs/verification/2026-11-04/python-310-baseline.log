@@ -1,0 +1,274 @@
+test_cookie_flags_logout_idle_expiry_and_same_origin_guard (test_accounts.AccountsTests) ... ok
+test_invitation_cannot_reset_existing_account_or_reuse_consumed_token (test_accounts.AccountsTests) ... ok
+test_local_transition_initialization_race_keeps_exactly_one_owner_and_data (test_accounts.AccountsTests) ... ok
+test_login_rate_limit_password_hash_and_generic_errors (test_accounts.AccountsTests) ... ok
+test_required_mode_public_setup_and_audit_redaction (test_accounts.AccountsTests) ... ok
+test_revoked_selected_workspace_can_switch_to_another_membership (test_accounts.AccountsTests) ... ok
+test_role_downgrade_is_immediate_and_owner_cannot_be_removed (test_accounts.AccountsTests) ... ok
+test_viewer_scopes_and_revocation_take_effect_on_sessions_and_tokens (test_accounts.AccountsTests) ... ok
+test_workspace_storage_isolation_and_scoped_tokens (test_accounts.AccountsTests) ... ok
+test_write_and_execute_scopes_are_separate_and_tokens_are_revocable (test_accounts.AccountsTests) ... ok
+test_audit_failure_rolls_back_consumption_atomically (test_action_approvals.ActionApprovalsTests) ... ok
+test_authority_revision_change_blocks_approval_and_consumption (test_action_approvals.ActionApprovalsTests) ... ok
+test_authorizer_cannot_mutate_stored_action (test_action_approvals.ActionApprovalsTests) ... ok
+test_authorizer_exception_rolls_back_without_consuming (test_action_approvals.ActionApprovalsTests) ... ok
+test_authorizer_required_and_fail_closed (test_action_approvals.ActionApprovalsTests) ... ok
+test_concurrent_consumers_use_approval_once (test_action_approvals.ActionApprovalsTests) ... ok
+test_concurrent_identical_requests_create_one_record (test_action_approvals.ActionApprovalsTests) ... ok
+test_concurrent_revocation_and_consumption_are_serialized (test_action_approvals.ActionApprovalsTests) ... ok
+test_consumed_permission_cannot_be_undone_by_revocation (test_action_approvals.ActionApprovalsTests) ... ok
+test_digest_binds_authority_and_exact_canonical_envelope (test_action_approvals.ActionApprovalsTests) ... ok
+test_exact_digest_required_for_decision_and_consumption (test_action_approvals.ActionApprovalsTests) ... ok
+test_expired_request_retry_does_not_create_fresh_approval (test_action_approvals.ActionApprovalsTests) ... ok
+test_expiry_boundary_blocks_consumption (test_action_approvals.ActionApprovalsTests) ... ok
+test_expiry_boundary_blocks_pending_approval (test_action_approvals.ActionApprovalsTests) ... ok
+test_expiry_is_checked_after_live_authorization (test_action_approvals.ActionApprovalsTests) ... ok
+test_expiry_must_be_finite_integer_in_next_day (test_action_approvals.ActionApprovalsTests) ... ok
+test_failed_expired_consumption_commits_expiration (test_action_approvals.ActionApprovalsTests) ... ok
+test_failed_expired_decision_commits_expiration (test_action_approvals.ActionApprovalsTests) ... ok
+test_human_without_decide_grant_cannot_approve (test_action_approvals.ActionApprovalsTests) ... ok
+test_invalid_json_and_budgets_rejected (test_action_approvals.ActionApprovalsTests) ... ok
+test_live_grant_revocation_blocks_execution (test_action_approvals.ActionApprovalsTests) ... ok
+test_no_schema_collision_or_existing_data_changes (test_action_approvals.ActionApprovalsTests) ... ok
+test_observed_expiry_is_terminal_after_clock_rollback (test_action_approvals.ActionApprovalsTests) ... ok
+test_only_bound_worker_can_consume (test_action_approvals.ActionApprovalsTests) ... ok
+test_other_requester_cannot_reuse_action_key (test_action_approvals.ActionApprovalsTests) ... ok
+test_pending_and_approved_can_be_revoked (test_action_approvals.ActionApprovalsTests) ... ok
+test_pending_cannot_be_consumed (test_action_approvals.ActionApprovalsTests) ... ok
+test_process_exit_after_consumption_does_not_restore_permission (test_action_approvals.ActionApprovalsTests) ... ok
+test_rejection_is_terminal (test_action_approvals.ActionApprovalsTests) ... ok
+test_request_starts_pending_with_immutable_copy (test_action_approvals.ActionApprovalsTests) ... ok
+test_reusing_key_cannot_change_action_parameters_budget_or_expiry (test_action_approvals.ActionApprovalsTests) ... ok
+test_revocation_can_close_an_approval_with_stale_authority (test_action_approvals.ActionApprovalsTests) ... ok
+test_revocation_requires_human_and_nonempty_reason (test_action_approvals.ActionApprovalsTests) ... ok
+test_same_action_key_is_separate_in_an_authorized_second_workspace (test_action_approvals.ActionApprovalsTests) ... ok
+test_same_request_key_is_idempotent_including_after_consumption (test_action_approvals.ActionApprovalsTests) ... ok
+test_successful_approval_is_not_execution_and_consumes_once (test_action_approvals.ActionApprovalsTests) ... ok
+test_unknown_fields_missing_budget_and_oversized_payload_rejected (test_action_approvals.ActionApprovalsTests) ... ok
+test_worker_cannot_approve_even_with_decide_grant (test_action_approvals.ActionApprovalsTests) ... ok
+test_workspace_isolation_for_read_request_decide_and_consume (test_action_approvals.ActionApprovalsTests) ... ok
+test_read_scope_viewer_and_other_workspace_use_actual_http_boundaries (test_agent_session_transport.SessionTransportTests) ... ok
+test_real_http_two_turns_share_identity_and_paginate_without_credentials (test_agent_session_transport.SessionTransportTests) ... ok
+test_audited_termination_releases_future_work_without_claiming_side_effect_absence (test_agent_sessions.AgentSessionTests) ... ok
+test_delegation_edges_only_come_from_accepted_coordinator_plans (test_agent_sessions.AgentSessionTests) ... ok
+test_expired_previous_task_is_recovered_before_the_next_task (test_agent_sessions.AgentSessionTests) ... ok
+test_host_and_capability_mismatches_start_fresh_with_explicit_reasons (test_agent_sessions.AgentSessionTests) ... ok
+test_instruction_skill_source_and_background_changes_invalidate_native_context (test_agent_sessions.AgentSessionTests) ... ok
+test_large_context_keeps_session_metadata_and_explicit_source_omissions_bounded (test_agent_sessions.AgentSessionTests) ... ok
+test_legacy_upgrade_keeps_all_cancelled_unknown_tasks_visible_until_reviewed (test_agent_sessions.AgentSessionTests) ... ok
+test_most_recent_completion_without_checkpoint_never_resurrects_old_branch (test_agent_sessions.AgentSessionTests) ... ok
+test_native_head_and_identity_survive_a_new_python_process (test_agent_sessions.AgentSessionTests) ... ok
+test_read_pagination_is_workspace_scoped_bounded_and_has_no_credentials (test_agent_sessions.AgentSessionTests) ... ok
+test_same_task_native_target_is_frozen_before_later_tool_events (test_agent_sessions.AgentSessionTests) ... ok
+test_task_result_recovery_has_priority_and_context_change_invalidates_own_resume (test_agent_sessions.AgentSessionTests) ... ok
+test_team_membership_change_requires_fresh_context_without_expanding_old_runs (test_agent_sessions.AgentSessionTests) ... ok
+test_two_tasks_share_logical_identity_and_only_the_completed_native_head (test_agent_sessions.AgentSessionTests) ... ok
+test_two_workers_cannot_claim_two_ready_tasks_in_one_logical_session (test_agent_sessions.AgentSessionTests) ... ok
+test_unknown_call_and_plain_cancel_block_future_turn_until_audited_review (test_agent_sessions.AgentSessionTests) ... ok
+test_add_remove_changes_future_claims_without_touching_current_lease (test_catalog_refresh.CatalogRefreshTests) ... ok
+test_disconnected_expired_and_replaced_sessions_never_refresh_or_reregister (test_catalog_refresh.CatalogRefreshTests) ... ok
+test_fixed_worker_request_keeps_explicit_filter_and_follow_requires_existing_session (test_catalog_refresh.CatalogRefreshTests) ... ok
+test_follow_flag_cannot_expand_fixed_external_registration (test_catalog_refresh.CatalogRefreshTests) ... ok
+test_managed_process_claims_new_role_without_restart_and_child_has_no_credentials (test_catalog_refresh.CatalogRefreshTests) ... ok
+test_refresh_is_pinned_to_issued_token_workspace_and_restores_context (test_catalog_refresh.CatalogRefreshTests) ... ok
+test_refresh_never_restores_a_cancelled_lease (test_catalog_refresh.CatalogRefreshTests) ... ok
+test_revoked_token_membership_and_local_mode_transition_stop_expansion (test_catalog_refresh.CatalogRefreshTests) ... ok
+test_actual_matching_receipt_creates_new_ledger_events_without_old_sequence (test_codex_agent_continuation.AgentContinuationTests) ... ok
+test_cross_turn_cannot_be_used_to_retry_or_forge_source_receipt (test_codex_agent_continuation.AgentContinuationTests) ... ok
+test_fresh_generation_and_legacy_envelope_start_new_native_context (test_codex_agent_continuation.AgentContinuationTests) ... ok
+test_native_receipt_must_match_for_cross_turn_and_task_continuation (test_codex_agent_continuation.AgentContinuationTests) ... ok
+test_new_task_uses_exact_completed_native_thread_and_preserves_caller_configuration (test_codex_agent_continuation.AgentContinuationTests) ... ok
+test_task_recovery_overrides_prior_turn_branch (test_codex_agent_continuation.AgentContinuationTests) ... ok
+test_unsupported_host_mismatch_and_invalid_uuid_do_not_fallback (test_codex_agent_continuation.AgentContinuationTests) ... ok
+test_cancel_and_failure_retry_follow_real_task_state (test_collaboration.CollaborationTests) ... ok
+test_comments_anchor_history_replies_and_optimistic_thread_state (test_collaboration.CollaborationTests) ... ok
+test_concurrent_comment_and_request_retries_create_one_entity (test_collaboration.CollaborationTests) ... ok
+test_concurrent_different_results_only_commit_one_revision (test_collaboration.CollaborationTests) ... ok
+test_conflicting_completion_keeps_candidate_then_explicit_atomic_apply (test_collaboration.CollaborationTests) ... ok
+test_creation_failure_rolls_back_request_task_message_and_key_together (test_collaboration.CollaborationTests) ... ok
+test_cross_artifact_version_workspace_and_viewer_boundaries (test_collaboration.CollaborationTests) ... ok
+test_expired_lease_reclaim_rejects_old_results_with_snapshot_intact (test_collaboration.CollaborationTests) ... ok
+test_frozen_baseline_comments_reply_agent_and_prioritized_bounded_claim (test_collaboration.CollaborationTests) ... ok
+test_http_contract_author_provenance_and_version_filters (test_collaboration.CollaborationTests) ... ok
+test_invalid_targets_new_artifacts_plan_and_wrong_baseline_are_atomic (test_collaboration.CollaborationTests) ... ok
+test_limits_reject_before_enqueue_instead_of_omitting_baseline (test_collaboration.CollaborationTests) ... ok
+test_round_trip_is_linked_idempotent_and_does_not_resolve_or_approve (test_collaboration.CollaborationTests) ... ok
+test_two_requests_for_one_baseline_do_not_overwrite_each_other (test_collaboration.CollaborationTests) ... ok
+test_active_call_is_not_blocked_but_unknown_outcome_requires_audited_review (test_execution.ExecutionTests) ... ok
+test_cancel_blocks_append_and_http_routes_preserve_permissions_boundary (test_execution.ExecutionTests) ... ok
+test_checkpoint_survives_a_real_python_process_restart (test_execution.ExecutionTests) ... ok
+test_continuation_requires_capability_worker_identity_and_current_checkpoint (test_execution.ExecutionTests) ... ok
+test_expired_pending_unsafe_call_is_not_automatically_reclaimed_or_completed (test_execution.ExecutionTests) ... ok
+test_final_result_checkpoint_reclaims_without_model_and_completion_ack_loss_is_idempotent (test_execution.ExecutionTests) ... ok
+test_membership_revocation_viewer_and_workspace_isolation (test_execution.ExecutionTests) ... ok
+test_modification_result_validation_has_no_early_version_side_effect (test_execution.ExecutionTests) ... ok
+test_old_lease_cannot_append_even_identical_event_or_complete (test_execution.ExecutionTests) ... ok
+test_reconciliation_is_atomic_idempotent_and_records_actor (test_execution.ExecutionTests) ... ok
+test_retry_safe_pending_call_can_restart_without_fabricating_a_result (test_execution.ExecutionTests) ... ok
+test_schema_limits_reserved_terminal_capacity_and_no_private_reasoning (test_execution.ExecutionTests) ... ok
+test_session_is_stable_and_event_retries_are_atomic_and_fingerprinted (test_execution.ExecutionTests) ... ok
+test_staged_result_does_not_override_unknown_side_effect_gate (test_execution.ExecutionTests) ... ok
+test_audited_termination_preserves_unknown_count_for_all_readers_without_reopening_task (test_execution_visibility.OutcomeVisibilityTests) ... ok
+test_cancelled_unknown_is_visible_to_viewer_and_read_token_but_mutations_stay_forbidden (test_execution_visibility.OutcomeVisibilityTests) ... ok
+test_count_is_unsafe_outcome_review_scope_not_a_generic_incomplete_call_counter (test_execution_visibility.OutcomeVisibilityTests) ... ok
+test_live_pending_is_not_mislabelled_but_expired_or_cancelled_pending_requires_review (test_execution_visibility.OutcomeVisibilityTests) ... ok
+test_outcome_fields_do_not_bypass_workspace_or_current_membership_read_access (test_execution_visibility.OutcomeVisibilityTests) ... ok
+test_checkpoint_duplicate_after_other_events_keeps_original_fingerprint (test_executor_events.ExecutorEventTests) ... ok
+test_event_batch_renews_lease_inside_drain (test_executor_events.ExecutorEventTests) ... ok
+test_failed_command_does_not_assert_no_side_effect (test_executor_events.ExecutorEventTests) ... ok
+test_private_model_and_tool_fields_do_not_enter_public_tape (test_executor_events.ExecutorEventTests) ... ok
+test_resume_is_bound_to_exact_host_session_with_no_silent_fallback (test_executor_events.ExecutorEventTests) ... ok
+test_unknown_protocol_and_missing_call_id_leave_review_receipt (test_executor_events.ExecutorEventTests) ... ok
+test_active_prior_run_is_skipped_and_failed_status_is_visible (test_extensions.ExtensionTests) ... ok
+test_claim_contains_pinned_guidance_and_reports_archived_or_oversized_skills (test_extensions.ExtensionTests) ... ok
+test_concurrent_ticks_create_exactly_one_run_and_restart_catches_up_once (test_extensions.ExtensionTests) ... ok
+test_enabling_accounts_pauses_old_local_schedule (test_extensions.ExtensionTests) ... ok
+test_extension_http_dispatch_routes (test_extensions.ExtensionTests) ... ok
+test_member_revocation_pauses_creator_schedule_before_start (test_extensions.ExtensionTests) ... ok
+test_pause_manual_run_and_archive_keep_historical_work (test_extensions.ExtensionTests) ... ok
+test_schedule_edit_conflicts_validation_and_saved_template_use (test_extensions.ExtensionTests) ... ok
+test_skill_versions_exact_content_archive_and_binding_conflicts (test_extensions.ExtensionTests) ... ok
+test_tick_all_isolates_workspaces_and_restores_request_context (test_extensions.ExtensionTests) ... ok
+test_actual_extractor_process_rejects_allocation_above_memory_limit (test_files_sharing.FilesSharingTests) ... ok
+test_docx_text_tabs_and_breaks_and_unsafe_zip_or_dtd_are_not_executed (test_files_sharing.FilesSharingTests) ... ok
+test_files_search_and_share_management_are_workspace_scoped (test_files_sharing.FilesSharingTests) ... ok
+test_image_has_no_invented_ocr_and_invalid_inputs_leave_no_files (test_files_sharing.FilesSharingTests) ... ok
+test_public_http_response_has_fixed_origin_csp_and_no_account_details (test_files_sharing.FilesSharingTests) ... ok
+test_real_pdf_text_blank_pdf_and_encrypted_pdf_use_bounded_child (test_files_sharing.FilesSharingTests) ... ok
+test_resource_failures_preserve_original_and_extractor_queue_is_bounded (test_files_sharing.FilesSharingTests) ... ok
+test_search_uses_upload_body_and_active_latest_records_only (test_files_sharing.FilesSharingTests) ... ok
+test_shares_pin_versions_hide_tokens_and_support_expiry_and_revocation (test_files_sharing.FilesSharingTests) ... ok
+test_text_keeps_exact_original_hash_context_and_revocation (test_files_sharing.FilesSharingTests) ... ok
+test_agents_context_persistence_and_public_credentials (test_hub.HubTests) ... ok
+test_artifact_revision_conflict_rolls_back_and_preserves_exact_bytes (test_hub.HubTests) ... ok
+test_cancel_invalidates_running_results_and_preserves_completed_work (test_hub.HubTests) ... ok
+test_claim_context_has_explicit_omissions_and_readable_versioned_artifacts (test_hub.HubTests) ... ok
+test_concurrent_workflow_edits_only_accept_one_base_version (test_hub.HubTests) ... ok
+test_cross_room_artifact_rejected_and_html_preview_is_sandboxed (test_hub.HubTests) ... ok
+test_exclusive_claim_across_independent_connections (test_hub.HubTests) ... ok
+test_expiry_reclaim_heartbeat_and_stale_writer (test_hub.HubTests) ... ok
+test_failed_retry_only_replays_failed_and_unstarted_tasks (test_hub.HubTests) ... ok
+test_http_validation_events_and_unknown_routes (test_hub.HubTests) ... ok
+test_human_edits_are_atomic_and_reviews_belong_to_versions (test_hub.HubTests) ... ok
+test_non_coordinator_cannot_plan (test_hub.HubTests) ... ok
+test_plan_validation_is_atomic_and_dependency_schedule_is_real (test_hub.HubTests) ... ok
+test_retry_old_failure_cannot_reorder_started_followup (test_hub.HubTests) ... ok
+test_room_runs_are_serial_and_future_user_messages_are_not_claim_context (test_hub.HubTests) ... ok
+test_sources_preserve_hash_record_unfetched_urls_and_revoke_from_new_context (test_hub.HubTests) ... ok
+test_v04_http_routes_and_legacy_schema_migration (test_hub.HubTests) ... ok
+test_worker_registration_expiry_is_truthful_and_independent_of_task_lease (test_hub.HubTests) ... ok
+test_worker_session_cannot_be_stolen_and_claims_respect_registered_roles (test_hub.HubTests) ... ok
+test_workflow_edits_validate_dag_and_snapshot_instantiated_runs (test_hub.HubTests) ... ok
+test_cancel_stops_a_running_executor_and_rejects_output (test_hub_transport.TransportTests) ... ok
+test_cli_and_web_share_the_same_database_and_exact_output (test_hub_transport.TransportTests) ... ok
+test_external_command_consumes_real_queue_and_persists_output (test_hub_transport.TransportTests) ... ok
+test_http_persistence_exact_download_headers_and_host_guards (test_hub_transport.TransportTests) ... ok
+test_local_team_workflow_migration_and_message_schema_are_real_stdio (test_mcp.MCPTests) ... Processing request of type ListToolsRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+ok
+test_real_stdio_client_lists_tools_and_creates_project (test_mcp.MCPTests) ... Processing request of type ListToolsRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+ok
+test_remote_stdio_uses_real_http_permissions_and_immediate_revocation (test_mcp.MCPTests) ... Processing request of type CallToolRequest
+Processing request of type ListToolsRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type ListToolsRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+ok
+test_remote_team_stdio_http_sqlite_member_fencing_and_recovery (test_mcp.MCPTests) ... Processing request of type ListToolsRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+ok
+test_workspace_stdio_claim_plan_artifact_and_cancel (test_mcp.MCPTests) ... Processing request of type CallToolRequest
+Processing request of type ListToolsRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+Processing request of type CallToolRequest
+ok
+test_admin_check_reports_corruption_without_credentials_or_document_text (test_operations.OperationsTests) ... ok
+test_admin_interactive_init_reset_revokes_all_sessions_and_tokens (test_operations.OperationsTests) ... ok
+test_backup_restores_accounts_two_workspaces_and_magazine_files (test_operations.OperationsTests) ... ok
+test_declared_hash_cannot_hide_a_corrupt_database (test_operations.OperationsTests) ... ok
+test_existing_data_is_never_overwritten_and_stop_writes_is_required (test_operations.OperationsTests) ... ok
+test_hash_failure_does_not_modify_empty_or_missing_target (test_operations.OperationsTests) ... ok
+test_restore_rejects_traversal_links_zipbombs_and_case_collisions (test_operations.OperationsTests) ... ok
+test_sqlite_backup_includes_committed_wal_without_raw_sidecars (test_operations.OperationsTests) ... ok
+test_append_order_and_legacy_speaker_fallback_are_truthful (test_room_summaries.RoomSummaryTests) ... ok
+test_batch_statuses_match_existing_detail_semantics_including_lease_expiry (test_room_summaries.RoomSummaryTests) ... ok
+test_empty_team_has_no_invented_message_and_member_preview_is_current_bounded (test_room_summaries.RoomSummaryTests) ... ok
+test_latest_human_and_agent_identity_and_message_time_ignore_progress (test_room_summaries.RoomSummaryTests) ... ok
+test_preview_preserves_unicode_and_never_reads_private_execution_or_sources (test_room_summaries.RoomSummaryTests) ... ok
+test_request_workspace_scope_is_preserved_for_people_and_members (test_room_summaries.RoomSummaryTests) ... ok
+test_room_summary_query_count_does_not_grow_with_rooms_or_runs (test_room_summaries.RoomSummaryTests) ... ok
+test_concurrent_edit_does_not_publish_build_as_current (test_studio.StudioTests) ... ok
+test_design_selection_changes_rendered_theme_and_cover (test_studio.StudioTests) ... ok
+test_http_round_trip_and_cross_origin_rejection (test_studio.StudioTests) ... ok
+test_incomplete_or_unsafe_inputs_are_rejected (test_studio.StudioTests) ... ok
+test_project_instructions_are_persisted_and_mark_old_build_stale (test_studio.StudioTests) ... ok
+test_real_renderer_build_preview_download_and_stale_status (test_studio.StudioTests) ... ok
+test_user_text_is_escaped_and_generic_layout_does_not_invent_claims (test_studio.StudioTests) ... ok
+test_archive_stops_work_but_preserves_artifact_and_discussion_history (test_teams.TeamTests) ... ok
+test_automatic_router_is_bounded_and_plan_cannot_escape_frozen_members (test_teams.TeamTests) ... ok
+test_completion_and_removal_serialize_without_resurrecting_members (test_teams.TeamTests) ... ok
+test_create_and_open_are_atomic_persistent_and_not_workflows (test_teams.TeamTests) ... ok
+test_explicit_modification_can_return_to_internal_coordinator_source (test_teams.TeamTests) ... ok
+test_explicit_targets_and_idempotent_messages_are_enforced_on_server (test_teams.TeamTests) ... ok
+test_http_contract_validates_fields_and_exposes_actual_routing (test_teams.TeamTests) ... ok
+test_mention_mode_saves_notes_without_runs_and_switch_never_triggers_work (test_teams.TeamTests) ... ok
+test_modification_cannot_use_removed_agent_or_survive_roster_removal (test_teams.TeamTests) ... ok
+test_registration_does_not_expand_team_membership_and_workflows_remain_separate (test_teams.TeamTests) ... ok
+test_removal_cancels_entire_run_and_every_old_lease_write_or_read (test_teams.TeamTests) ... ok
+test_removal_preserves_completed_outputs_and_only_affects_snapshotted_runs (test_teams.TeamTests) ... ok
+test_version_conflicts_and_immutable_audit_record_actual_actor (test_teams.TeamTests) ... ok
+test_workspace_isolation_live_member_revocation_and_token_write_scope (test_teams.TeamTests) ... ok
+
+----------------------------------------------------------------------
+Ran 206 tests in 62.105s
+
+OK
